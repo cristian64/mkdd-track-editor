@@ -1,11 +1,12 @@
 import contextlib
 import pickle
+import collections
 import traceback
 import os
 from timeit import default_timer
 from copy import deepcopy
 from io import TextIOWrapper, BytesIO, StringIO
-from math import sin, cos, atan2
+from math import sin, cos, atan2, pi
 import json
 from PIL import Image
 
@@ -809,6 +810,10 @@ class GenEditor(QtWidgets.QMainWindow):
             action.triggered.connect(make_func(i))
 
             self.misc_menu.addAction(action)
+
+        reverse_official_track_action = self.misc_menu.addAction("Reverse Official Track")
+        reverse_official_track_action.setShortcut("Ctrl+`")
+        reverse_official_track_action.triggered.connect(self.action_reverse_official_track)
 
     def action_hook_into_dolphion(self):
         error = self.dolphin.initialize()
@@ -2830,6 +2835,1529 @@ class GenEditor(QtWidgets.QMainWindow):
             elif ext == ".bmd":
                 self.load_optional_bmd(filepath)
 
+    def action_reverse_official_track(self):
+        self.reverse_official_track()
+        self.leveldatatreeview.set_objects(self.level_file)
+        self.update_3d()
+
+    def reverse_official_track(self):
+
+        def similar_position(p, x, y, z):
+            return abs(p.x - x) < 1.0 and abs(p.y - y) < 1.0 and abs(p.z - z) < 1.0
+
+        def clone_map_object(obj):
+            new_obj = libbol.MapObject.new()
+            new_obj.position = obj.position.copy()
+            new_obj.scale = obj.scale.copy()
+            new_obj.rotation.set_vectors(*obj.rotation.get_vectors())
+            new_obj.objectid = obj.objectid
+            new_obj.pathid = obj.pathid
+            new_obj.unk_28 = obj.unk_28
+            new_obj.unk_2a = obj.unk_2a
+            new_obj.presence_filter = obj.presence_filter
+            new_obj.presence = obj.presence
+            new_obj.unk_flag = obj.unk_flag
+            new_obj.unk_2f = obj.unk_2f
+            new_obj.userdata = list(obj.userdata)
+            return new_obj
+
+        # Determine which course this is based on the position of the start point, which is assumed
+        # unique (and in fact it is unique among the stock courses).
+
+        class Course(object):
+            LuigiCircuit = False
+            LuigiCircuit2 = False
+            PeachBeach = False
+            BabyPark = False
+            DryDryDesert = False
+            MushroomBridge = False
+            MarioCircuit = False
+            DaisyCruiser = False
+            WaluigiStadium = False
+            SherbetLand = False
+            MushroomCity = False
+            YoshiCircuit = False
+            DKMountain = False
+            WarioColosseum = False
+            DinoDinoJungle = False
+            BowsersCastle = False
+            RainbowRoad = False
+
+        assert len(self.level_file.kartpoints.positions) == 1
+
+        for point in self.level_file.kartpoints.positions:
+            if similar_position(point.position, 9401, 3575, 16871):
+                Course.LuigiCircuit = True
+            elif similar_position(point.position, 9361, 3575, 16861):
+                Course.LuigiCircuit2 = True
+            elif similar_position(point.position, 9510, 3586, 3260):
+                Course.PeachBeach = True
+            elif similar_position(point.position, 310, 6000, 2826):
+                Course.BabyPark = True
+            elif similar_position(point.position, -25379, 5400, -5450):
+                Course.DryDryDesert = True
+            elif similar_position(point.position, 22461, 4000, 13912):
+                Course.MushroomBridge = True
+            elif similar_position(point.position, -15127, 1100, 2886):
+                Course.MarioCircuit = True
+            elif similar_position(point.position, 8353, 9000, 20):
+                Course.DaisyCruiser = True
+            elif similar_position(point.position, 3465, 997, -80):
+                Course.WaluigiStadium = True
+            elif similar_position(point.position, -5718, 1533, 1750):
+                Course.SherbetLand = True
+            elif similar_position(point.position, 16142, 5000, 1200):
+                Course.MushroomCity = True
+            elif similar_position(point.position, 4546, 12704, 34084):
+                Course.YoshiCircuit = True
+            elif similar_position(point.position, -14890, 4032, 243):
+                Course.DKMountain = True
+            elif similar_position(point.position, -13450, 22179, -979):
+                Course.WarioColosseum = True
+            elif similar_position(point.position, 13150, 8427, -6598):
+                Course.DinoDinoJungle = True
+            elif similar_position(point.position, 3624, 8109, 15533):
+                Course.BowsersCastle = True
+            elif similar_position(point.position, -15537, 58219, -36093):
+                Course.RainbowRoad = True
+            else:
+                raise RuntimeError('Course not recognized.')
+
+        # Checkpoints ------------------------------------------------------------------------------
+
+        checkpointgroups = self.level_file.checkpoints.groups
+
+        # Trivial case for a single group.
+        if len(checkpointgroups) == 1:
+            group = checkpointgroups[0]
+            group.points = [group.points[0]] + list(reversed(group.points[1:]))
+            for point in group.points:
+                start = point.start
+                point.start = point.end
+                point.end = start
+
+        # Special cases with more than one group.
+        elif Course.YoshiCircuit:
+            for group in checkpointgroups:
+                for point in group.points:
+                    start = point.start
+                    point.start = point.end
+                    point.end = start
+
+            group_0_points = checkpointgroups[0].points
+            group_2_points = checkpointgroups[2].points
+
+            checkpointgroups[0].points = [group_0_points[0]] + list(reversed(group_2_points))
+            checkpointgroups[1].points.reverse()
+            checkpointgroups[2].points = list(reversed(group_0_points))[:-1]
+            checkpointgroups[3].points.reverse()
+
+            checkpointgroups[0].grouplink = 0
+            checkpointgroups[0].prevgroup = [2, -1, -1, -1]
+            checkpointgroups[0].nextgroup = [1, 3, -1, -1]
+            checkpointgroups[1].grouplink = 1  # Not sure. Original has it.
+            checkpointgroups[1].prevgroup = [0, -1, -1, -1]
+            checkpointgroups[1].nextgroup = [2, -1, -1, -1]
+            checkpointgroups[2].grouplink = 1  # Not sure. Original has it.
+            checkpointgroups[2].prevgroup = [1, 3, -1, -1]
+            checkpointgroups[2].nextgroup = [0, -1, -1, -1]
+            checkpointgroups[3].grouplink = 32768  # Skippable.
+            checkpointgroups[3].prevgroup = [0, -1, -1, -1]
+            checkpointgroups[3].nextgroup = [2, -1, -1, -1]
+
+        elif Course.MushroomCity:
+            for group in checkpointgroups:
+                for point in group.points:
+                    start = point.start
+                    point.start = point.end
+                    point.end = start
+
+            group_0_points = checkpointgroups[0].points
+            group_1_points = checkpointgroups[1].points
+
+            checkpointgroups[0].points = [group_0_points[0]] + list(reversed(group_1_points))
+            checkpointgroups[1].points = list(reversed(group_0_points))[:-1]
+            checkpointgroups[2].points.reverse()
+            checkpointgroups[3].points.reverse()
+            checkpointgroups[4].points.reverse()
+            checkpointgroups[5].points.reverse()
+
+            checkpointgroups[0].grouplink = 0
+            checkpointgroups[0].prevgroup = [1, -1, -1, -1]
+            checkpointgroups[0].nextgroup = [4, 5, -1, -1]
+            checkpointgroups[1].grouplink = 0
+            checkpointgroups[1].prevgroup = [2, 3, -1, -1]
+            checkpointgroups[1].nextgroup = [0, -1, -1, -1]
+            checkpointgroups[2].grouplink = 32768  # Skippable.
+            checkpointgroups[2].prevgroup = [4, 5, -1, -1]
+            checkpointgroups[2].nextgroup = [1, -1, -1, -1]
+            checkpointgroups[3].grouplink = 1  # Not sure. Original has it.
+            checkpointgroups[3].prevgroup = [4, 5, -1, -1]
+            checkpointgroups[3].nextgroup = [1, -1, -1, -1]
+            checkpointgroups[4].grouplink = 1  # Not sure. Original has it.
+            checkpointgroups[4].prevgroup = [0, -1, -1, -1]
+            checkpointgroups[4].nextgroup = [2, 3, -1, -1]
+            checkpointgroups[5].grouplink = 32768  # Skippable.
+            checkpointgroups[5].prevgroup = [0, -1, -1, -1]
+            checkpointgroups[5].nextgroup = [2, 3, -1, -1]
+
+        elif Course.WarioColosseum:
+            for group in checkpointgroups:
+                for point in group.points:
+                    start = point.start
+                    point.start = point.end
+                    point.end = start
+
+            group_0_points = checkpointgroups[0].points
+            group_1_points = checkpointgroups[1].points
+
+            checkpointgroups[0].points = [group_0_points[0]] + list(reversed(group_1_points))
+            checkpointgroups[1].points = list(reversed(group_0_points))[:-1]
+
+            checkpointgroups[0].grouplink = 0
+            checkpointgroups[0].prevgroup = [1, -1, -1, -1]
+            checkpointgroups[0].nextgroup = [1, -1, -1, -1]
+            checkpointgroups[1].grouplink = 0
+            checkpointgroups[1].prevgroup = [0, -1, -1, -1]
+            checkpointgroups[1].nextgroup = [0, -1, -1, -1]
+
+        elif checkpointgroups:
+            checkpointgroups_str = ', '.join(tuple(str(len(g.points)) for g in checkpointgroups))
+            open_error_dialog(
+                'Unrecognized number of checkpoints in checkpoint groups ({}).\n\n'.format(
+                    checkpointgroups_str) +
+                'Checkpoint groups have not been reversed: the result would likely be incoherent.',
+                self)
+
+        # Kart Start Points ------------------------------------------------------------------------
+
+        for point in self.level_file.kartpoints.positions:
+            # Kart start points are merely rotated by 180 degrees.
+            point.rotation.rotate_around_z(pi)
+
+            POLE_LEFT = 0
+            POLE_RIGHT = 1
+
+            # Each course has a finish line of a different width. The offset has been determined
+            # empirically to a value that looks good, so that the karts do not step over the line.
+            if Course.LuigiCircuit:
+                offset = 1080
+                point.poleposition = POLE_RIGHT
+            elif Course.LuigiCircuit2:
+                offset = 1070
+                point.poleposition = POLE_RIGHT
+            elif Course.PeachBeach:
+                offset = 1015
+                point.poleposition = POLE_LEFT
+            elif Course.BabyPark:
+                offset = 1150
+                point.poleposition = POLE_LEFT
+            elif Course.DryDryDesert:
+                offset = 1160
+                point.poleposition = POLE_LEFT
+            elif Course.MushroomBridge:
+                offset = 965
+                point.poleposition = POLE_RIGHT
+            elif Course.MarioCircuit:
+                offset = 1200
+                point.poleposition = POLE_RIGHT
+            elif Course.DaisyCruiser:
+                offset = 1410
+                point.poleposition = POLE_RIGHT
+            elif Course.WaluigiStadium:
+                offset = 1070
+                point.poleposition = POLE_LEFT
+            elif Course.SherbetLand:
+                offset = 1050
+                point.poleposition = POLE_LEFT
+            elif Course.MushroomCity:
+                offset = 1210
+                point.poleposition = POLE_RIGHT
+            elif Course.YoshiCircuit:
+                offset = 1055
+                point.poleposition = POLE_LEFT
+            elif Course.DKMountain:
+                offset = 965
+                point.poleposition = POLE_RIGHT
+            elif Course.WarioColosseum:
+                offset = 1005
+                point.poleposition = POLE_RIGHT
+            elif Course.DinoDinoJungle:
+                offset = 1005
+                point.poleposition = POLE_RIGHT
+            elif Course.BowsersCastle:
+                offset = 1065
+                point.poleposition = POLE_RIGHT
+            elif Course.RainbowRoad:
+                offset = 1110
+                point.poleposition = POLE_LEFT
+
+            forward, _up, _left = point.rotation.get_vectors()
+            point.position -= forward * offset
+
+        # Start Line Camera Position ---------------------------------------------------------------
+
+        # This is an automatic attempt to make cameras look at the karts at the start of the race.
+        intro_cameras = set()
+        for camera in self.level_file.cameras:
+            if camera.startcamera == 1:
+                break
+        assert camera.startcamera == 1
+        intro_cameras.add(camera)
+        while camera.nextcam != -1:
+            camera = self.level_file.cameras[camera.nextcam]
+            intro_cameras.add(camera)
+        karts_start_point = self.level_file.kartpoints.positions[0]
+        karts_start_position = karts_start_point.position
+        karts_start_direction, _up, _left = karts_start_point.rotation.get_vectors()
+        karts_start_direction = karts_start_direction.unit()
+        karts_middle_position = karts_start_position - (karts_start_direction * 400)
+        camera.position2 = karts_middle_position
+        if camera.camtype == 4:  # Only end point is looked at.
+            camera.position3.x = camera.position2.x
+            camera.position3.y = camera.position2.y
+            camera.position3.z = camera.position2.z
+
+        # Special tweaks for some tracks.
+        camera_route = self.level_file.routes[camera.route]
+        for point in camera_route.points:
+            if Course.LuigiCircuit or Course.LuigiCircuit2:
+                point.position.z -= 4000
+            elif Course.PeachBeach:
+                point.position.x -= 600
+                point.position.z += 900
+            elif Course.BabyPark:
+                point.position.z -= 1000
+            elif Course.DryDryDesert:
+                point.position.z += 2000
+            elif Course.MushroomBridge:
+                point.position.x += 4000
+                point.position.y += 2000
+            elif Course.MarioCircuit:
+                point.position.y += 200
+                point.position.z -= 3000
+            elif Course.WaluigiStadium:
+                point.position.x -= 2500
+                point.position.y += 500
+            elif Course.YoshiCircuit:
+                point.position.x -= 1000
+                point.position.y += 500
+                point.position.z += 2500
+            elif Course.DKMountain:
+                point.position.y += 500
+                point.position.z += 2500
+            elif Course.WarioColosseum:
+                point.position.x += 1000
+                point.position.z += 3000
+        if Course.DaisyCruiser:
+            # Camera type is 6 (static camera that only rotates).
+            camera.position.x -= 3000
+            camera.position.y += 200
+            camera.position.z += 1000
+        elif Course.BowsersCastle:
+            # Camera type is 6 (static camera that only rotates).
+            camera.position.x -= 200
+            camera.position.y += 500
+            camera.position.z -= 2000
+
+        # Area Camera Routes -----------------------------------------------------------------------
+
+        # Post-race cameras that follow a route need to be reversed, or else it doesn't feel natural
+        # when karts are framed while the camera moves far away.
+        visited_cameras = set()
+        for i, area in enumerate(self.level_file.areas.areas):
+            if area.camera_index < 0:
+                continue
+            camera = self.level_file.cameras[area.camera_index]
+            if camera in visited_cameras:
+                continue
+            visited_cameras.add(camera)
+            assert camera not in intro_cameras, 'Area camera not expected in the intro sequence'
+            if camera.route >= 0:
+                route = self.level_file.routes[camera.route]
+                route.points.reverse()
+            # What about swapping intro-outro zoom levels? What about swapping look-at positions?
+            # Some of these cameras still feel slightly unnatural, or end up pointing to the kart
+            # that is behind a hill, ...but improving these require manual adjustments to each of
+            # cameras. Testing these changes is also cumbersome.
+
+        # Enemy Points -----------------------------------------------------------------------------
+
+        # In Mushroom Bridge, it's been noticed that some intermediate enemy points have a link
+        # value that is not -1. This appears to be an oversight by the original makers. This
+        # algorithm requires that all intermediate points have no link value.
+        for group in self.level_file.enemypointgroups.groups:
+            for point in group.points[1:-1]:
+                point.link = -1
+
+        for group in self.level_file.enemypointgroups.groups:
+            # As documented in http://wiki.tockdom.com/wiki/BOL_(File_Format), the first point in
+            # the group stores whether the group can be followed by enemies and items, or only by
+            # items. This value needs to be preserved.
+            only_items_follow = group.points[0].groupsetting == 1
+
+            # The rest of the settings will be reset. At this point, we (the community) don't yet
+            # fully understand the purpose of these bytes. To avoid erratic behavior, all bytes will
+            # be discarded. This implies that the AI's skills are slightly depleted. For example,
+            # the AI won't know when to start drifting on sharp curves.
+            for point in group.points:
+                point.pointsetting = 0
+                point.groupsetting = 0
+                point.pointsetting2 = 0
+                point.unk1 = 0
+                point.unk2 = 0
+
+            group.points.reverse()
+
+            if only_items_follow:
+                group.points[0].groupsetting = 1
+
+        # After reversing, the former last group needs to become the new first group. This
+        # guarantees that the start of the course remains aligned with the first enemy point of the
+        # first group.
+        former_first_group = self.level_file.enemypointgroups.groups[0]
+        new_first_group = None
+        for new_first_group in self.level_file.enemypointgroups.groups:
+            if former_first_group.points[-1].link == new_first_group.points[0].link:
+                break
+        if former_first_group is not new_first_group:
+            new_first_group_index = self.level_file.enemypointgroups.groups.index(new_first_group)
+            self.level_file.enemypointgroups.groups[new_first_group_index] = former_first_group
+            self.level_file.enemypointgroups.groups[0] = new_first_group
+
+        # To keep enemy point groups in a sensible order, the links will be renamed in an ascending
+        # order. This makes the data more human-readable, but it also appears to be a requirement;
+        # the AI might misbehave if the links are in descending order.
+        first_segment = None
+        all_segments = set()
+        for group in self.level_file.enemypointgroups.groups:
+            # Convert to string. It will be replaced with the new integer value.
+            group.points[0].link = str(group.points[0].link)
+            group.points[-1].link = str(group.points[-1].link)
+            segment = (group.points[0].link, group.points[-1].link)
+            if first_segment is None:
+                first_segment = segment
+            all_segments.add(segment)
+        visited_segments = collections.OrderedDict()
+        pending_segments = [first_segment]
+        while pending_segments:
+            pending_segment = pending_segments[0]
+            del pending_segments[0]
+            visited_segments[pending_segment] = True
+            for segment in all_segments:
+                if segment not in visited_segments:
+                    if pending_segment[1] == segment[0]:
+                        pending_segments.append(segment)
+        assert len(all_segments) == len(visited_segments)
+        new_links_names = {}
+        for segment in visited_segments:
+            if segment[0] not in new_links_names:
+                new_links_names[segment[0]] = len(new_links_names)
+            if segment[1] not in new_links_names:
+                new_links_names[segment[1]] = len(new_links_names)
+        for point in self.level_file.enemypointgroups.points():
+            if point.link in new_links_names:
+                point.link = new_links_names[point.link]
+        # Note that the groups are being sorted twice, to deprioritize items-only groups.
+        self.level_file.enemypointgroups.groups.sort(key=lambda group: group.points[0].groupsetting)
+        self.level_file.enemypointgroups.groups.sort(key=lambda group: group.points[0].link)
+
+        # Finally, rebuild IDs and indices depending on the position of the group in the list.
+        self.level_file.enemypointgroups._group_ids = {}
+        for i, group in enumerate(self.level_file.enemypointgroups.groups):
+            group.id = i
+            self.level_file.enemypointgroups._group_ids[i] = group
+            for point in group.points:
+                point.group = i
+
+        # Respawn Points ---------------------------------------------------------------------------
+
+        for respawn_point in self.level_file.respawnpoints:
+            respawn_point.rotation.rotate_around_z(pi)
+
+            # Find the two closest enemy points; the index [of the one that is ahead in the course]
+            # will be used for the next enemy point field in the respawn point. Using the greater of
+            # the two indices guarantees that the enemy point is ahead of the respawn point, or else
+            # the AI would attempt to drive backwards (and probably fall over again and again).
+            index_and_distance = []
+            index_offset = 0
+            for group in self.level_file.enemypointgroups.groups:
+                for i, point in enumerate(group.points):
+                    distance = (point.position - respawn_point.position).norm()
+                    index_and_distance.append((index_offset + i, distance))
+                index_offset += len(group.points)
+            index_and_distance.sort(key=lambda entry: entry[1])
+            next_enemy_point = max(index_and_distance[0][0], index_and_distance[1][0])
+            respawn_point.unk1 = next_enemy_point
+
+            # Clear the previous checkpoint, as it's no longer accurate.
+
+        # Other Special Cases ----------------------------------------------------------------------
+
+        if Course.PeachBeach:
+            # In Peach Beach, the respan points around the pipe shortcut didn't need to be rotated
+            # 180 degrees. They need to be rotated back.
+            for point in self.level_file.respawnpoints:
+                if similar_position(point.position, 13394, 4863, 26497):
+                    point.rotation.rotate_around_z(pi)
+                elif similar_position(point.position, 13404, 1985, 26490):
+                    point.rotation.rotate_around_z(pi)
+            # And a few others that need to be slightly tweaked.
+            for point in self.level_file.respawnpoints:
+                if similar_position(point.position, 3530, 810, -25778):
+                    point.position.x = 4958.111
+                    point.position.z = -25683.032
+                elif similar_position(point.position, -4813, 810, -16010):
+                    point.rotation.rotate_around_z(-0.5)
+                elif similar_position(point.position, 665, 810, 14065):
+                    point.rotation.rotate_around_z(-0.3)
+                elif similar_position(point.position, -8297, 968, 20237):
+                    point.rotation.rotate_around_z(0.9)
+                elif similar_position(point.position, 2215, 1990, 26503):
+                    point.rotation.rotate_around_z(0.4)
+                elif similar_position(point.position, 8758, 2362, 23014):
+                    point.rotation.rotate_around_z(0.5)
+
+        elif Course.DryDryDesert:
+            for point in self.level_file.respawnpoints:
+                # In Dry Dry Desert, the respawn point at the sinkhole needs to be moved to the
+                # other side of the sinkhole.
+                if similar_position(point.position, 17745, 5034, -528):
+                    next_enemy_point = 27
+                    point.unk1 = next_enemy_point
+                    point.position.x = 18493.176
+                    point.position.z = -15267.074
+                # Some respawn points needs to be reoriented slightly.
+                elif similar_position(point.position, 17750, 5809, -25813):
+                    point.rotation.rotate_around_z(0.6)
+                elif similar_position(point.position, -3291, 4163, -26391):
+                    point.rotation.rotate_around_z(1.0)
+                elif similar_position(point.position, -21375, 5405, -27431):
+                    point.rotation.rotate_around_z(0.5)
+                # The automatic attempt to determine the next enemy point failed for one respawn
+                # point.
+                elif similar_position(point.position, 16245, 5684, 11202):
+                    next_enemy_point = 21
+                    point.unk1 = next_enemy_point
+            # The last item boxes are not too useful in the last lap. They will be moved back, to
+            # give time to players to use the item.
+            for obj in self.level_file.objects.objects:
+                a = type(obj.position)(-25809.5, 5424.471, -22410.2)
+                b = type(obj.position)(-24233.2, 5417.722, -22045.0)
+                if similar_position(obj.position, -26163, 5440, -12651):
+                    obj.position = a
+                elif similar_position(obj.position, -25657, 5442, -12651):
+                    obj.position = a + (b - a) / 3.0
+                elif similar_position(obj.position, -25151, 5444, -12651):
+                    obj.position = a + (b - a) / 3.0 * 2.0
+                elif similar_position(obj.position, -24658, 5445, -12651):
+                    obj.position = b
+
+        elif Course.MushroomBridge:
+            # In Mushroom Bridge, the respawn points around the pipe shortcut didn't need to be
+            # rotated 180 degrees. They need to be rotated back.
+            for point in self.level_file.respawnpoints:
+                if similar_position(point.position, 36796, 4441, 8239):
+                    point.rotation.rotate_around_z(pi)
+
+            # The automatic attempt to set the next enemy point didn't work in several respawn
+            # points (the other side of the lake happens to be closer).
+            for point in self.level_file.respawnpoints:
+                if similar_position(point.position, 1997, 4000.0, 12027):
+                    point.unk1 = 4
+                elif similar_position(point.position, 11021, 4000, 12027):
+                    point.unk1 = 3
+                elif similar_position(point.position, 24430, 4000, 12000):
+                    point.unk1 = 0
+
+        elif Course.MarioCircuit:
+            # Last item boxes are not too useful in the last lap. They will be moved a few curves
+            # ahead.
+            for obj in self.level_file.objects.objects:
+                a = type(obj.position)(-4969.5, 1100, 18378.6)
+                b = type(obj.position)(-3498.1, 1100, 18847.9)
+                if similar_position(obj.position, -15943, 1100, 15241):
+                    obj.position = a
+                elif similar_position(obj.position, -15435, 1100, 15205):
+                    obj.position = a + (b - a) / 4.0
+                elif similar_position(obj.position, -14927, 1100, 15165):
+                    obj.position = a + (b - a) / 4.0 * 2.0
+                elif similar_position(obj.position, -14406, 1100, 15125):
+                    obj.position = a + (b - a) / 4.0 * 3.0
+                elif similar_position(obj.position, -13932, 1100, 15081):
+                    obj.position = b
+
+        elif Course.DaisyCruiser:
+            # In Daisy Cruiser, when AI karts fall through the sinkhole, they don't know how to use
+            # the cannon to get out. A new water zone (Roadtype_0x0F00_0x00000101) will be added in
+            # the sinkhole to address this.
+            # (Even if it was possible to work out a solution where karts still use the cannon to
+            # get out, the penalty for falling in the hole would be too great.)
+            # Remove the old enemy point group that was located in the basement.
+            del self.level_file.enemypointgroups.groups[2]
+            # Reassign group IDs.
+            self.level_file.enemypointgroups._group_ids = {}
+            for i, group in enumerate(self.level_file.enemypointgroups.groups):
+                group.id = i
+                self.level_file.enemypointgroups._group_ids[i] = group
+                for point in group.points:
+                    point.group = i
+            # The respawn point associated with the newly added water zone (0x0F00) needs to be
+            # re-placed.
+            for point in self.level_file.respawnpoints:
+                if similar_position(point.position, 19395, 7995, -4306):
+                    point.position.x = -2734.657
+                    point.position.y = 6300
+                    point.position.z = 3572.106
+                    next_enemy_point = 29
+                    point.unk1 = next_enemy_point
+                    point.unk3 = 16
+                    point.rotation.rotate_around_z(-pi / 2)
+            # The swimming pool needs to be cloned, as the basement is not full of water. A new
+            # water zone  is defined in the BCO file.
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, -24987, 8210, -2000):
+                    new_pool = clone_map_object(obj)
+                    new_pool.position.x = 2780.219
+                    new_pool.position.y = 6100
+                    new_pool.position.z = 3448.066
+                    self.level_file.objects.objects.append(new_pool)
+
+                    # A splash object is created as well. Without this, the splash effect was not
+                    # working, which is interesting, considering that the other swiming pool
+                    # (0x0F01_0x000001FF) did not require this splash object for some reason. The
+                    # index of this splash object (1) matches the last byte in the material label of
+                    # the new pool.
+                    splash_obj = libbol.MapObject.new()
+                    splash_obj.presence_filter = 143
+                    splash_obj.presence = 3  # Present in both levels of detail.
+                    splash_obj.objectid = 4209  # GeoSplash
+                    splash_obj.position.x = new_pool.position.x
+                    splash_obj.position.y = new_pool.position.y
+                    splash_obj.position.z = new_pool.position.z
+                    splash_obj.userdata[0] = 1  # Index.
+                    splash_obj.userdata[1] = 2  # Type of splash.
+                    self.level_file.objects.objects.append(splash_obj)
+
+            # A respawn point (by the swimming pool) needs its next enemy point set, its preceding
+            # checkpoint index set, and its orientation tweaked.
+            for point in self.level_file.respawnpoints:
+                if similar_position(point.position, -27779, 8499, 2037):
+                    next_enemy_point = 68
+                    point.unk1 = next_enemy_point
+                    point.unk3 = 29
+                    point.rotation.rotate_around_z(0.8)
+
+            # Clone some item boxes near the swimming pool (the last item boxes are too close to the
+            # finish line).
+            offset_x = -58488
+            offset_y = 1250
+            offset_z = 2000
+            offset_pathid = len(self.level_file.routes) - 25
+            clone_object_paths = []
+            for i, route in enumerate(self.level_file.routes):
+                if 25 <= i <= 29:
+                    assert len(route.points) == 2
+                    route_point_0 = type(route.points[0]).new()
+                    route_point_0.position += route.points[0].position
+                    route_point_0.position.x += offset_x
+                    route_point_0.position.y += offset_y
+                    route_point_0.position.z += offset_z
+                    route_point_1 = type(route.points[1]).new()
+                    route_point_1.position += route.points[1].position
+                    route_point_1.position.x += offset_x
+                    route_point_1.position.y += offset_y
+                    route_point_1.position.z += offset_z
+                    route = type(route)()
+                    route.points = [route_point_0, route_point_1]
+                    clone_object_paths.append(route)
+            assert len(clone_object_paths) == 5
+            self.level_file.routes.extend(clone_object_paths)
+            clone_item_boxes = []
+            for obj in self.level_file.objects.objects:
+                if 25 <= obj.pathid <= 29:
+                    obj = clone_map_object(obj)
+                    obj.position.x += offset_x
+                    obj.position.y += offset_y
+                    obj.position.z += offset_z
+                    obj.pathid += offset_pathid
+                    clone_item_boxes.append(obj)
+            assert len(clone_item_boxes) == 10
+            self.level_file.objects.objects.extend(clone_item_boxes)
+
+            # Last items will be moved further from the finish line as well.
+            offset_x = -5600
+            for i, route in enumerate(self.level_file.routes):
+                if 11 <= i <= 15:
+                    assert len(route.points) == 2
+                    route.points[0].position.x += offset_x
+                    route.points[1].position.x += offset_x
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, -10700, 9500, -6325):
+                    obj.position.x += offset_x
+                elif similar_position(obj.position, -10700, 9500, -6075):
+                    obj.position.x += offset_x
+                elif similar_position(obj.position, -10700, 9500, -5825):
+                    obj.position.x += offset_x
+                elif similar_position(obj.position, -10700, 9500, -5575):
+                    obj.position.x += offset_x
+                elif similar_position(obj.position, -10700, 9500, -5325):
+                    obj.position.x += offset_x
+                elif similar_position(obj.position, -10468, 9300, -6071):
+                    obj.position.x += offset_x
+                elif similar_position(obj.position, -10468, 9300, -5661):
+                    obj.position.x += offset_x
+                elif similar_position(obj.position, -10468, 9300, -5251):
+                    obj.position.x += offset_x
+                elif similar_position(obj.position, -10468, 9300, -4841):
+                    obj.position.x += offset_x
+                elif similar_position(obj.position, -10468, 9300, -4431):
+                    obj.position.x += offset_x
+
+            # Space out some enemy points as well, or else karts may follow the wrong one. This is
+            # in theory the same issue thatw as first discovered in Mushroom City in the main
+            # junction.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, -6716, 6499, -3619):
+                    point.position.x = -6373.894
+                    point.position.z = -2849.078
+                elif similar_position(point.position, -6398, 6499, -4426):
+                    point.position.x = -6719.29
+                    point.position.z = -4641.356
+
+            # Move these enemy points further away from the sinkhole.
+            self.level_file.enemypointgroups.groups[1].points[7].position.x -= 400
+            self.level_file.enemypointgroups.groups[1].points[8].position.x -= 300
+            self.level_file.enemypointgroups.groups[1].points[9].position.x += 500
+            self.level_file.enemypointgroups.groups[1].points[10].position.x += 500
+            self.level_file.enemypointgroups.groups[1].points[10].position.z += 100
+            self.level_file.enemypointgroups.groups[1].points[12].position.z -= 50
+
+        elif Course.WaluigiStadium:
+            # In Waluigi Stadium, a number of item boxes and fire balls are now too high for reach,
+            # as in the reverse mode karts don't get that high up. These objects will be moved
+            # downwards slightly. The assumption is that these positions uniquely identify the
+            # objects in the track.
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, 12879, 3079, -11):
+                    obj.position.y -= 425
+                elif similar_position(obj.position, 12867, 3242, -19):
+                    obj.position.y -= 425
+                elif similar_position(obj.position, 12872, 3242, -19):
+                    obj.position.y -= 425
+                elif similar_position(obj.position, -8025, 3114, -4947):
+                    obj.position.y -= 850
+                    obj.position.x -= 600
+                elif similar_position(obj.position, -8123, 3220, -4953):
+                    obj.position.y -= 850
+                    obj.position.x -= 600
+                elif similar_position(obj.position, -8118, 3220, -4953):
+                    obj.position.y -= 850
+                    obj.position.x -= 600
+                elif similar_position(obj.position, -1608, 2454, -10471):
+                    obj.position.y -= 1450
+                    obj.position.x -= 3700
+                elif similar_position(obj.position, -1595, 2593, -10473):
+                    obj.position.y -= 1450
+                    obj.position.x -= 3700
+                elif similar_position(obj.position, -1588, 2593, -10473):
+                    obj.position.y -= 1450
+                    obj.position.x -= 3700
+            for point in self.level_file.respawnpoints:
+                # The automatic attempt to select next enemy point failed in one respawn point.
+                if similar_position(point.position, -10484, 1588, -4949):
+                    next_enemy_point = 41
+                    point.unk1 = next_enemy_point
+
+        elif Course.SherbetLand:
+            # Cosmetic tweaks for the one respawn point.
+            for point in self.level_file.respawnpoints:
+                if similar_position(point.position, 7719, 1176, -17237):
+                    point.rotation.rotate_around_z(0.5)
+            # Move the last item boxes, so that the now last curve can be fun.
+            for obj in self.level_file.objects.objects:
+                a = type(obj.position)(-155.3, 1184, -18211.2)
+                b = type(obj.position)(1506.2, 1184, -16736.7)
+                if similar_position(obj.position, -3191, 1315, -7695):
+                    obj.position = a
+                    obj.userdata[1] = 3  # Always double prize
+                elif similar_position(obj.position, -2889, 1326, -7221):
+                    obj.position = a + (b - a) / 3.0
+                    obj.userdata[1] = 0  # Single or double prize
+                elif similar_position(obj.position, -2590, 1337, -6771):
+                    obj.position = a + (b - a) / 3.0 * 2.0
+                    obj.userdata[1] = 1  # Always single prize
+                elif similar_position(obj.position, -2321, 1346, -6352):
+                    obj.position = b
+                    obj.userdata[1] = 1  # Always single prize
+
+        elif Course.MushroomCity:
+            # A number of respawn points need to be tweaked.
+            for point in self.level_file.respawnpoints:
+                if similar_position(point.position, -6142, 5000, -889):
+                    next_enemy_point = 3
+                    point.unk1 = next_enemy_point
+                elif similar_position(point.position, 17644, 5000, 1188):
+                    next_enemy_point = 0
+                    point.unk1 = next_enemy_point
+                elif similar_position(point.position, 17644, 5000, 1188):
+                    next_enemy_point = 0
+                    point.unk1 = next_enemy_point
+                elif similar_position(point.position, 38494, 4000, 13204):
+                    point.rotation.rotate_around_z(0.8)
+                elif similar_position(point.position, 7497, 4000, 13296):
+                    point.rotation.rotate_around_z(pi / 2.0)
+                elif similar_position(point.position, -6156, 5000, -911):
+                    next_enemy_point = 3
+                    point.unk1 = next_enemy_point
+                elif similar_position(point.position, 3964, 5541, -900):
+                    next_enemy_point = 22
+                    point.unk1 = next_enemy_point
+            # Enemy points in the main junction need to be spaced out, or else AI karts may end up
+            # following the enemy route that is meant for human karts (and items). There is no real
+            # explanation for this, but spacing them out seems to be a workaround.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, 8013, 4000, 2640):
+                    point.position.x = 8049.321
+                    point.position.z = 2960.635
+                elif similar_position(point.position, 9537, 4020, 1159):
+                    point.position.x = 9069.965
+                    point.position.z = 1537.109
+                elif similar_position(point.position, 9500, 4000, 750):
+                    point.position.x = 10331.2
+                    point.position.z = 622.4
+                elif similar_position(point.position, 9539, 4000, -731):
+                    point.position.x = 9824.571
+                    point.position.z = -838.578
+            # Move the last item boxes, so that the now last curve can be fun.
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, 29307, 5000, 2789):
+                    obj.position.x = 31300
+                    obj.position.y -= 1000
+                    obj.position.z += 9750
+                elif similar_position(obj.position, 29304, 5000, 3222):
+                    obj.position.x = 31300
+                    obj.position.y -= 1000
+                    obj.position.z += 9750
+                elif similar_position(obj.position, 29304, 5000, 3660):
+                    obj.position.x = 31300
+                    obj.position.y -= 1000
+                    obj.position.z += 9750
+                elif similar_position(obj.position, 29310, 5000, 4053):
+                    obj.position.x = 31300
+                    obj.position.y -= 1000
+                    obj.position.z += 9750
+
+        elif Course.YoshiCircuit:
+            # Cosmetic tweaks for respawn points.
+            for point in self.level_file.respawnpoints:
+                if similar_position(point.position, 3018, 13860, -13285):
+                    point.rotation.rotate_around_z(-1.0)
+            # Move the last item boxes, so that the now last curve can be fun.
+            for obj in self.level_file.objects.objects:
+                a = type(obj.position)(-1951.3, 13000, 20239.401)
+                b = type(obj.position)(-938.9, 13005, 19263.9)
+                if similar_position(obj.position, -7804, 12716, 29073):
+                    obj.position = b
+                elif similar_position(obj.position, -7275, 12716, 29000):
+                    obj.position = a + (b - a) / 3.0 * 2.0
+                elif similar_position(obj.position, -6750, 12716, 28928):
+                    obj.position = a + (b - a) / 3.0
+                elif similar_position(obj.position, -6222, 12716, 28839):
+                    obj.position = a
+
+        elif Course.DKMountain:
+            # In DK Mountain, the barrel cannon needs to be replaced, reoriented and reconnected to
+            # their correct respawn point.
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, -12640, 7520, 14880):
+                    obj.position.x = -357.2
+                    obj.position.y = 33150
+                    obj.position.z = -56865.157
+                    forward, up, left = obj.rotation.get_vectors()
+                    forward.x = -0.13015892227286752
+                    forward.y = -0.636526839633258
+                    forward.z = 0.7601922371211514
+                    up.x = -0.10742192358905826
+                    up.y = 0.7712545509924055
+                    up.z = 0.6273969619833439
+                    left.x = 0.9856567279155517
+                    left.y = 0.0
+                    left.z = 0.16876259868468454
+                    obj.rotation.set_vectors(forward, up, left)
+            for point in self.level_file.respawnpoints:
+                if similar_position(point.position, -375, 34270, -53659):
+                    next_enemy_point = 77
+                    point.unk1 = next_enemy_point
+                    point.position.x = -12391.407
+                    point.position.y = 10500
+                    point.position.z = 13793.222
+                    point.rotation.rotate_around_z(0.2)
+            # Add an extra respawn point. Karts can now fall through the cliff if the cannon shoots
+            # too close to the right-hand side (where the gap is).
+            for respawn_point in self.level_file.respawnpoints:
+                if respawn_point.respawn_id == 0:
+                    new_respawn_point = libbol.JugemPoint.new()
+                    new_respawn_point.position.x = -12759.874
+                    new_respawn_point.position.y = 8670.48
+                    new_respawn_point.position.z = 15182.344
+                    new_respawn_point.rotation.set_vectors(*respawn_point.rotation.get_vectors())
+                    new_respawn_point.respawn_id = 7
+                    next_enemy_point = 76
+                    new_respawn_point.unk1 = next_enemy_point
+                    new_respawn_point.unk2 = -1
+                    new_respawn_point.unk3 = -1
+                    self.level_file.respawnpoints.append(new_respawn_point)
+            # The path of the camera that was pointing at the billboard and then the cannon will be
+            # reversed, so that the billboard is given the light spot.
+            for camera in self.level_file.cameras:
+                if similar_position(camera.position, -24742, 10233, 14156):
+                    camera.position3.x = camera.position2.x
+                    camera.position3.y = camera.position2.y
+                    camera.position3.z = camera.position2.z
+                    camera.position2.x = -21224.457
+                    camera.position2.y = 11287.488
+                    camera.position2.z = 20326.903
+            # And the two static cameras that were pointing at the cannon barrel and landing area
+            # will be touched up, so that they show a more relevant view now.
+            for camera in self.level_file.cameras:
+                if similar_position(camera.position, -15836, 7411, 6958):
+                    camera.position.x = -15836.0
+                    camera.position.y = 11912.36
+                    camera.position.z = 7998.26
+                    forward, up, left = camera.rotation.get_vectors()
+                    forward.x = 0.3383
+                    forward.y = -0.3455
+                    forward.z = 0.8753
+                    up.x = 0.1412
+                    up.y = 0.9383
+                    up.z = 0.3158
+                    left.x = 0.9304
+                    left.y = -0.0168
+                    left.z = -0.3662
+                    camera.rotation.set_vectors(forward, up, left)
+                elif similar_position(camera.position, 1900, 34315, -64800):
+                    camera.position.x = 3004.798
+                    camera.position.y = 35698.786
+                    camera.position.z = -53975.203
+                    forward, up, left = camera.rotation.get_vectors()
+                    forward.x = -0.5855
+                    forward.y = -0.4913
+                    forward.z = -0.6448
+                    up.x = -0.2891
+                    up.y = 0.8696
+                    up.z = -0.4002
+                    left.x = -0.7574
+                    left.y = 0.0479
+                    left.z = 0.6512
+                    camera.rotation.set_vectors(forward, up, left)
+
+            # Move item boxes so they can be at reach, and add some more item boxes in the uphill,
+            # as it would otherwise be slow paced/boring (compared to the original downhill).
+            item_boxes = []
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, 6929, 29455, -58215):
+                    item_boxes.append(obj)
+                elif similar_position(obj.position, 7309, 29433, -58223):
+                    item_boxes.append(obj)
+                elif similar_position(obj.position, 7674, 29409, -58220):
+                    item_boxes.append(obj)
+                elif similar_position(obj.position, 8020, 29434, -58221):
+                    item_boxes.append(obj)
+            for item_box in item_boxes:
+                item_box.position.y = 29210
+            for item_box in item_boxes:
+                clone_item_box = clone_map_object(item_box)
+                clone_item_box.position.x += 700
+                clone_item_box.position.y -= 5500
+                clone_item_box.position.z += 12500
+                self.level_file.objects.objects.append(clone_item_box)
+            for item_box in item_boxes:
+                clone_item_box = clone_map_object(item_box)
+                clone_item_box.position.x -= 15300
+                clone_item_box.position.y -= 15200
+                clone_item_box.position.z += 25300
+                self.level_file.objects.objects.append(clone_item_box)
+            # Move the now last four item boxes closer to the new landing area, or else there is no
+            # much time left to use the items in the last lap, as they are too close to the goal.
+            for obj in self.level_file.objects.objects:
+                a = type(obj.position)(-21302.0, 8429.53, 17943.0)
+                b = type(obj.position)(-20593.0, 8370.228, 17565.0)
+                if similar_position(obj.position, -16497, 5538, 8549):
+                    obj.position = a
+                elif similar_position(obj.position, -16113, 5525, 8424):
+                    obj.position = a + (b - a) / 3.0
+                elif similar_position(obj.position, -15757, 5513, 8308):
+                    obj.position = a + (b - a) / 3.0 * 2.0
+                elif similar_position(obj.position, -15388, 5495, 8171):
+                    obj.position = b
+            # Move/Rotate some respawn points that happen to be in an awkward place in this course.
+            for point in self.level_file.respawnpoints:
+                if similar_position(point.position, -14822, 4078, -2903):
+                    next_enemy_point = 4
+                    point.unk1 = next_enemy_point
+                    point.position.x = -14915.867
+                    point.position.y = 5706.045
+                    point.position.z = -13338.957
+                elif similar_position(point.position, -11801, 7500, -16852):
+                    point.position.x = -10801.857
+                    point.position.y = 7500.582
+                    point.position.z = -16280.864
+                    point.rotation.rotate_around_z(pi / 1.5)
+                elif similar_position(point.position, -14610, 9166, -28576):
+                    point.rotation.rotate_around_z(-pi / 2)
+                elif similar_position(point.position, 10505, 20014, -38217):
+                    point.rotation.rotate_around_z(pi / 2)
+            # Make bridge wider. On start, there are so many karts that some always fall. This is
+            # not such a big issue in the original course, as karts scatter during the first lap.
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, -14824, 4826, -8034):
+                    obj.scale.x *= 1.15
+            # Add some trees to hide the empty space left by the barrel cannon.
+            trees = [libbol.MapObject.new() for _ in range(2)]
+            for tree in trees:
+                tree.presence_filter = 143
+                tree.presence = 1  # Hidden in the low-detail version.
+            trees[0].objectid = 4505  # TMapObjNoMove_DonkyWood
+            trees[0].position.x = -13343.539
+            trees[0].position.y = 6655.139
+            trees[0].position.z = 12325.512
+            trees[0].rotation.rotate_around_z(3.0)
+            trees[1].objectid = 4504  # TMapObjDonkyTree
+            trees[1].position.x = -13782.259
+            trees[1].position.y = 7134.799
+            trees[1].position.z = 13170.097
+            trees[1].rotation.rotate_around_z(2.7)
+            self.level_file.objects.objects.extend(trees)
+            # In the original track, the first checkpoint after the cannon shot had the unk2 set. It
+            # is unsure at this time what it means, but the logic will be preserved.
+            assert checkpointgroups[0].points[56].unk2 == 1
+            checkpointgroups[0].points[55].unk2 = 1
+            checkpointgroups[0].points[56].unk2 = 0
+
+        elif Course.WarioColosseum:
+            # In Wario Colosseum, an invisible cannon needs to be added as a lift.
+            for point in self.level_file.respawnpoints:
+                if similar_position(point.position, -154, 28824, -61):
+                    next_enemy_point = 101
+                    point.unk1 = next_enemy_point
+                    point.position.x = 800
+                    point.position.y = 32000
+                    point.position.z = 288
+                    point.rotation = point.rotation.default()
+                    point.rotation.rotate_around_z(5.8992)
+                    cannon = libbol.MapObject.new()
+                    cannon.objectid = 4501  # GeoCannon
+                    cannon.position.x = 0
+                    cannon.position.y = 30000
+                    cannon.position.z = 0
+                    cannon.rotation.set_vectors(*point.rotation.get_vectors())
+                    cannon.unk_flag = 1  # Collision.
+                    cannon.presence_filter = 143
+                    cannon.userdata[0] = point.respawn_id
+                    cannon.userdata[2] = 1  # Invisible.
+                    cannon.userdata[3] = 1  # No idea. In Rainbow Row it is set to 1.
+                    self.level_file.objects.objects.append(cannon)
+                elif similar_position(point.position, -345, 28758, -141):
+                    # Center the respawn point on the boost, which happens to be at the world's
+                    # origin.
+                    point.position.x = 0
+                    point.position.z = 0
+            # Some item boxes need to be moved closer to the edge now.
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, -5460, 22449, -13210):
+                    obj.position.x = -6558.8
+                    obj.position.y = 22268
+                elif similar_position(obj.position, -5460, 22449, -12789):
+                    obj.position.x = -6558.8
+                    obj.position.y = 22268
+                elif similar_position(obj.position, -5460, 22449, -12397):
+                    obj.position.x = -6558.8
+                    obj.position.y = 22268
+                elif similar_position(obj.position, -5448, 22449, -12006):
+                    obj.position.x = -6558.8
+                    obj.position.y = 22268
+                elif similar_position(obj.position, -861, 23783, 11472):
+                    obj.position.x = -312.2
+                    obj.position.y = 23883
+                elif similar_position(obj.position, 16030, 25445, 13653):
+                    obj.position.x = 16195.6
+                    obj.position.y = 25300
+                elif similar_position(obj.position, 16031, 25445, 13653):
+                    obj.position.x = 16195.6
+                    obj.position.y = 25300
+            # Three respawn points need to be moved further away from the jump, so that heavy karts
+            # have a chance to speed up before taking the jump.
+            for respawn_point in self.level_file.respawnpoints:
+                if similar_position(respawn_point.position, 17619, 25365, 13761):
+                    respawn_point.position.x = 18446
+                elif similar_position(respawn_point.position, 17498, 25365, 13761):
+                    respawn_point.position.x = 18446
+                elif similar_position(respawn_point.position, 1050, 23793, 11500):
+                    respawn_point.position.x = 2540
+                elif similar_position(respawn_point.position, -8050, 22179, -12662):
+                    respawn_point.position.x = -9516
+                elif similar_position(respawn_point.position, -8314, 22179, -12662):
+                    respawn_point.position.x = -9516
+            # Two respawn points need their next enemy point swapped, as the automatic attempt did
+            # not get the values right. These are the two respawn points at the black hole jump.
+            for respawn_point in self.level_file.respawnpoints:
+                if similar_position(respawn_point.position, 2367, 12793, 1589):
+                    respawn_point.unk1 = 35
+                elif similar_position(respawn_point.position, -2378, 12793, -1585):
+                    respawn_point.unk1 = 33
+            # Also fix the preceding checkpoint index of the respawn points.
+            self.level_file.respawnpoints[0].unk3 = 5
+            self.level_file.respawnpoints[1].unk3 = 70
+            self.level_file.respawnpoints[2].unk3 = 67
+            self.level_file.respawnpoints[3].unk3 = 59
+            self.level_file.respawnpoints[4].unk3 = 23
+            self.level_file.respawnpoints[5].unk3 = 15
+            self.level_file.respawnpoints[6].unk3 = 15
+            self.level_file.respawnpoints[7].unk3 = 62
+            self.level_file.respawnpoints[8].unk3 = 33
+            self.level_file.respawnpoints[9].unk3 = 7
+            self.level_file.respawnpoints[10].unk3 = 47
+            self.level_file.respawnpoints[11].unk3 = 43
+            self.level_file.respawnpoints[12].unk3 = 15
+            self.level_file.respawnpoints[13].unk3 = 16
+            self.level_file.respawnpoints[14].unk3 = 67
+            self.level_file.respawnpoints[15].unk3 = 59
+            self.level_file.respawnpoints[16].unk3 = 35
+            self.level_file.respawnpoints[17].unk3 = 70
+            self.level_file.respawnpoints[18].unk3 = 5
+            # The now first curve is too sharp, and the AI falls too often. They need to be guided
+            # to take the jump with the right direction.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, -13182, 22179, -9381):
+                    point.position.x = -13600.302
+                    point.position.z = -10077.566
+                    point.scale = 1000
+                elif similar_position(point.position, -12624, 22179, -11330):
+                    point.position.x = -12717.216
+                    point.position.z = -11887.452
+                    point.scale = 1000
+                elif similar_position(point.position, -10860, 22179, -12278):
+                    point.position.x = -10443.13
+                    point.position.z = -12882.196
+                    point.scale = 600
+                elif similar_position(point.position, -7345, 22179, -12629):
+                    point.position.x = -7253.032
+                    point.position.z = -12895.782
+                    point.scale = 600
+
+        elif Course.DinoDinoJungle:
+            # In Dino Dino Jungle, a respawn point needs to be moved after the bridge now. This is
+            # the only respawn point in the course with `unk3` (preceding checkpoint index) set, so
+            # we will keep it updated.
+            for respawn_point in self.level_file.respawnpoints:
+                if similar_position(respawn_point.position, 4417, 11016, 2635):
+                    next_enemy_point = 13
+                    respawn_point.unk1 = next_enemy_point
+                    respawn_point.unk3 = 17
+                    respawn_point.position.x = -1017.667
+                    respawn_point.position.z = -6557.909
+            # The automatic attempt to set the next respawn point failed in one respawn point.
+            for respawn_point in self.level_file.respawnpoints:
+                if similar_position(respawn_point.position, -23680, 12180, -18919):
+                    next_enemy_point = 26
+                    respawn_point.unk1 = next_enemy_point
+            # Cosmetic reorientation of a respawn point.
+            for respawn_point in self.level_file.respawnpoints:
+                if similar_position(respawn_point.position, -18294, 8952, 12319):
+                    respawn_point.rotation.rotate_around_z(0.3)
+            # The enemy point routes before the entrance to the bridge need to be shrinked, to guide
+            # the AI karts better through the bridge.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, 7127, 11181, 6913):
+                    point.position.x = 7352.806
+                    point.position.y = 10900.539
+                    point.position.z = 7767.463
+                    point.scale = 1000
+                elif similar_position(point.position, 5661, 11013, 4220):
+                    point.position.x = 5030.802
+                    point.position.z = 3274.75
+                    point.scale = 600
+                elif similar_position(point.position, 3114, 11120, 57):
+                    point.position.x = 1843.655
+                    point.position.z = -2218.857
+                    point.scale = 500
+                elif similar_position(point.position, -569, 11340, -6093):
+                    point.scale = 600
+            # Item boxes at the entrace of the bridge need to be moved up the hill.
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, 5177, 11014, 5050):
+                    obj.position.x += 640
+                    obj.position.y += 175
+                    obj.position.z += 1148
+                elif similar_position(obj.position, 5666, 11014, 4806):
+                    obj.position.x += 640
+                    obj.position.y += 175
+                    obj.position.z += 1148
+                elif similar_position(obj.position, 6150, 11015, 4558):
+                    obj.position.x += 640
+                    obj.position.y += 175
+                    obj.position.z += 1148
+                elif similar_position(obj.position, 6623, 11016, 4319):
+                    obj.position.x += 640
+                    obj.position.y += 175
+                    obj.position.z += 1148
+            # Enemy points in the long bridge need to be adjusted as well, to guide the AI karts
+            # better.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, -28043, 12069, -14909):
+                    point.position.x = -27124.985
+                    point.position.z = -16269.986
+                    point.scale = 1000
+                elif similar_position(point.position, -29344, 12069, -13709):
+                    point.position.x = -28968.548
+                    point.position.z = -14789.323
+                    point.scale = 1000
+                elif similar_position(point.position, -29532, 12069, -11003):
+                    point.position.x = -29679.755
+                    point.position.z = -13350.394
+                elif similar_position(point.position, -28176, 12069, -9351):
+                    point.position.x = -29488.43
+                    point.position.z = -11495.028
+                    point.scale = 700
+                elif similar_position(point.position, -27683, 12069, -7870):
+                    point.position.x = -28430.42
+                    point.position.z = -9968.252
+                    point.scale = 800
+                elif similar_position(point.position, -27528, 12069, -5512):
+                    point.position.x = -27498.599
+                    point.position.z = -8129.775
+                    point.scale = 700
+                elif similar_position(point.position, -26942, 11992, -3103):
+                    point.position.x = -26815.991
+                    point.position.y = 11968.697
+                    point.position.z = -2817.384
+                    point.scale = 400
+                elif similar_position(point.position, -25824, 11626, 1291):
+                    point.position.x = -25904.194
+                    point.position.y = 11642.031
+                    point.position.z = 1128.298
+                    point.scale = 700
+                elif similar_position(point.position, -24980, 11007, 5638):
+                    point.position.x = -24936.582
+                    point.position.y = 10909.169
+                    point.position.z = 6210.55
+                    point.scale = 700
+                elif similar_position(point.position, -24400, 10341, 8258):
+                    point.position.x = -24400.23
+                    point.position.y = 10311.652
+                    point.position.z = 8258.797
+                    point.scale = 800
+                elif similar_position(point.position, -23092, 9692, 10347):
+                    point.position.x = -22828.33
+                    point.position.y = 9624.745
+                    point.position.z = 10479.934
+                    point.scale = 800
+                elif similar_position(point.position, -19378, 9115, 12218):
+                    point.position.x = -20170.814
+                    point.position.y = 9143.745
+                    point.position.z = 12174.146
+                    point.scale = 900
+                elif similar_position(point.position, -17470, 8866, 12261):
+                    point.position.x = -17470.271
+                    point.position.y = 8866.754
+                    point.position.z = 12261.225
+                    point.scale = 700
+                elif similar_position(point.position, -15751, 8561, 11559):
+                    point.position.x = -15751.235
+                    point.position.y = 8561.806
+                    point.position.z = 11559.073
+                    point.scale = 800
+                if similar_position(point.position, -14698, 8251, 9954):
+                    point.position.x = -14698.151
+                    point.position.y = 8251.187
+                    point.position.z = 9954.363
+                    point.scale = 900
+            # Space out one of the enemy points in the secondary bridge (by the long bridge), to
+            # avoid the issue where karts may end up following an items-only enemy point nearby.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, -28089, 11961, -3098):
+                    point.position.x = -28452.639
+                    point.position.y = 11925.776
+                    point.position.z = -2411.521
+                    point.scale = 700
+            # Last item boxes are not too useful in the last lap. They will be moved a few curves
+            # ahead.
+            for obj in self.level_file.objects.objects:
+                a = type(obj.position)(7149.1, 8427.9, -13575.201)
+                b = type(obj.position)(8414.3, 8427.9, -14464.9)
+                if similar_position(obj.position, 10323, 8427, -18460):
+                    obj.position = a
+                elif similar_position(obj.position, 10523, 8427, -18908):
+                    obj.position = a + (b - a) / 3.0
+                elif similar_position(obj.position, 10727, 8427, -19352):
+                    obj.position = a + (b - a) / 3.0 * 2.0
+                elif similar_position(obj.position, 10943, 8427, -19846):
+                    obj.position = b
+
+        elif Course.BowsersCastle:
+            # In Bowser's Castle, a number of respawn points need their preceding checkpoint index
+            # reset.
+            for respawn_point in self.level_file.respawnpoints:
+                if similar_position(respawn_point.position, 3600, 8109, 13150):
+                    respawn_point.unk3 = 63
+                elif similar_position(respawn_point.position, -2266, 8518, 24767):
+                    respawn_point.unk3 = 3
+                elif similar_position(respawn_point.position, -2755, 8662, 24777):
+                    respawn_point.unk3 = 3
+            # A respawn point is too close to the edge.
+            for respawn_point in self.level_file.respawnpoints:
+                if similar_position(respawn_point.position, -25361, 8819, 20850):
+                    respawn_point.position.x = -26678.6
+                    respawn_point.position.z = 19907.6
+            # Another respawn point too close to a cliff.
+            for respawn_point in self.level_file.respawnpoints:
+                if similar_position(respawn_point.position, -11688, 5856, -12973):
+                    respawn_point.position.x = -11723.361
+                    respawn_point.position.z = -10801.091
+                    respawn_point.unk1 = 87
+            # A respawn point that needs to be rotated, as it's facing a wall.
+            for respawn_point in self.level_file.respawnpoints:
+                if similar_position(respawn_point.position, -3153, 9010, 15136):
+                    respawn_point.position.x = -3093.5
+                    respawn_point.position.z = 15636.799
+                    respawn_point.rotation.rotate_around_z(-pi / 2)
+            # Some enemy points need to be slightly replaced, or else the AI karts can be too dumb
+            # against walls.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, -11704, 6378, -3558):
+                    point.scale = 1000
+                elif similar_position(point.position, -11690, 6350, -6038):
+                    point.scale = 800
+                elif similar_position(point.position, -11711, 6213, -9293):
+                    point.scale = 700
+                elif similar_position(point.position, 2265, 6937, -17314):
+                    point.position.x = 2885.927
+                    point.position.z = -19695.056
+                    point.scale = 700
+                elif similar_position(point.position, 2229, 6937, -25547):
+                    point.position.x = 1947.2
+                    point.position.z = -26168.349
+                elif similar_position(point.position, 3168, 6937, -24698):
+                    point.position.x = 3186.967
+                    point.position.z = -25770.094
+                elif similar_position(point.position, 3530, 6937, -23212):
+                    point.position.x = 3662.113
+                    point.position.z = -25035.881
+                elif similar_position(point.position, 3641, 6937, -21705):
+                    point.position.x = 3829.853
+                    point.position.z = -23567.157
+                    point.scale = 800
+                elif similar_position(point.position, 4931, 6937, -17307):
+                    point.position.x = 4360.896
+                    point.position.z = -19713.352
+                    point.scale = 700
+                elif similar_position(point.position, 2408, 6937, -9105):
+                    point.position.x = 2290.373
+                    point.position.z = -10052.781
+                    point.scale = 700
+                elif similar_position(point.position, 4735, 6937, -9131):
+                    point.position.x = 4883.738
+                    point.position.z = -10048.809
+                    point.scale = 700
+                elif similar_position(point.position, 3583, 6757, -4287):
+                    point.position.z = -963.815
+                    point.scale = 700
+                elif similar_position(point.position, 3613, 6757, -347):
+                    point.position.z = 989.591
+                    point.scale = 700
+                elif similar_position(point.position, 3587, 6757, 1770):
+                    point.position.z = 2983.638
+                    point.scale = 500
+                elif similar_position(point.position, -24785, 8829, 21205):
+                    point.position.x = -25600.074
+                    point.position.z = 21831.697
+                elif similar_position(point.position, -21764, 8829, 21243):
+                    point.position.x = -22101.443
+                    point.position.z = 22001.798
+                    point.scale = 1000
+                elif similar_position(point.position, -19036, 8829, 21244):
+                    point.position.x = -19105.667
+                    point.position.z = 21906.953
+                elif similar_position(point.position, -24457, 8829, 22795):
+                    point.position.x = -25248.8
+                    point.position.z = 22141.699
+
+        elif Course.RainbowRoad:
+            # In Rainbow Road, the cannon needs to be replaced, and its orientation flipped.
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, 13547, 7964, 14490):
+                    obj.position.x = 7621.652
+                    obj.position.y = 65516.91
+                    obj.position.z = 6343.7
+                    obj.rotation.rotate_around_z(pi)
+            for point in self.level_file.respawnpoints:
+                if similar_position(point.position, 7621, 65516, 6343):
+                    next_enemy_point = 26
+                    point.unk1 = next_enemy_point
+                    point.position.x = 13906.3
+                    point.position.y = 8500
+                    point.position.z = 14914.621
+            # The long segment that has been rotated needs their enemy points tweaked, and its
+            # respawn point. And some item boxes can be added as well.
+            for point in self.level_file.respawnpoints:
+                if similar_position(point.position, -8990, 22984, 3537):
+                    next_enemy_point = 69
+                    point.unk1 = next_enemy_point
+                    point.position.x = -11961.139
+                    point.position.y = 19849.914
+                    point.position.z = 7157.754
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, -14867, 20691, 10641):
+                    point.position.y = 19381.551
+                elif similar_position(point.position, -11961, 21620, 7157):
+                    point.position.y = 19849.914
+                elif similar_position(point.position, -9249, 22818, 3967):
+                    point.position.y = 22392.346
+                elif similar_position(point.position, -6875, 24294, 1120):
+                    point.position.y = 25216.322
+                elif similar_position(point.position, -4564, 26504, -1539):
+                    point.position.y = 28761.83
+                elif similar_position(point.position, -2634, 29975, -3932):
+                    point.position.y = 32465.757
+            item_boxes = (libbol.MapObject.new(), libbol.MapObject.new())
+            for item_box in item_boxes:
+                item_box.objectid = 1  # GeoItemBox
+                item_box.position.x = -9261.935
+                item_box.position.y = 22791.51
+                item_box.position.z = 2932.105
+                item_box.unk_flag = 1  # Collision.
+                item_box.presence_filter = 15
+                item_box.presence = 3
+                item_box.userdata[0] = 135  # Height offset.
+                item_box.userdata[1] = 0  # Item box type.
+                self.level_file.objects.objects.append(item_box)
+            item_boxes[1].position.x = -8246.143
+            item_boxes[1].position.z = 3801.24
+            # In the last touched segment, the respawn point and enemy points need to be lifted as
+            # well.
+            for respawn_point in self.level_file.respawnpoints:
+                if similar_position(respawn_point.position, -5343, 50436, -27863):
+                    respawn_point.position.x = -4292.75
+                    respawn_point.position.y = 50561.184
+                    respawn_point.position.z = -27066.865
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, -4139, 49580, -26973):
+                    point.position.y = 50415.15
+                elif similar_position(point.position, -7473, 52432, -29655):
+                    point.position.y = 54395.957
+                elif similar_position(point.position, -12407, 58319, -33607):
+                    point.position.y = 60546.483
+            # Some curves are too sharp for the AI in reverse; they need to be smoothened.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, 19875, 4392, 24030):
+                    point.position.x = 20411.309
+                    point.position.z = 23816.118
+                    point.scale = 1600
+                elif similar_position(point.position, 20176, 4409, 26006):
+                    point.position.x = 20444.041
+                    point.position.z = 26166.851
+                    point.scale = 1200
+                elif similar_position(point.position, 18582, 4532, 27035):
+                    point.position.x = 18957.739
+                    point.position.z = 27035.482
+                    point.scale = 1200
+                elif similar_position(point.position, 16228, 4806, 27090):
+                    point.position.x = 16228.193
+                    point.position.z = 27090.387
+                    point.scale = 1000
+                elif similar_position(point.position, 14143, 5130, 27341):
+                    point.position.x = 13981.014
+                    point.position.z = 27509.902
+                    point.scale = 600
+                elif similar_position(point.position, 12035, 5578, 28432):
+                    point.position.x = 11688.665
+                    point.position.z = 28664.941
+                    point.scale = 600
+                elif similar_position(point.position, 9888, 5978, 28549):
+                    point.position.x = 9728.025
+                    point.position.z = 28602.795
+                    point.scale = 700
+                elif similar_position(point.position, 7648, 6349, 27478):
+                    point.position.x = 7469.984
+                    point.position.z = 27620.968
+                    point.scale = 1000
+                elif similar_position(point.position, 5469, 7125, 27435):
+                    point.position.x = 5369.341
+                    point.position.z = 27664.288
+                    point.scale = 1000
+                elif similar_position(point.position, 3287, 8390, 28683):
+                    point.position.x = 3081.368
+                    point.position.z = 28699.229
+                    point.scale = 700
+                elif similar_position(point.position, 974, 9862, 28837):
+                    point.position.x = 759.938
+                    point.position.z = 28784.281
+                    point.scale = 1000
+                elif similar_position(point.position, -1650, 11405, 27634):
+                    point.position.x = -2025.317
+                    point.position.z = 27634.963
+                    point.scale = 1100
+                elif similar_position(point.position, -4498, 13196, 27019):
+                    point.position.x = -4391.181
+                    point.position.z = 27072.629
+                    point.scale = 1500
+            for respawn_point in self.level_file.respawnpoints:
+                if similar_position(respawn_point.position, 11856, 5668, 28795):
+                    respawn_point.position.x = 12975.166
+                    respawn_point.position.z = 28050.46
+                    respawn_point.unk1 = 33
+            # AI karts need to be guided away from the fences in the uphill, or else they could get
+            # stuck.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, -707, 41904, -15320):
+                    point.position.x = -474.109
+                    point.position.z = -15378.421
+                elif similar_position(point.position, 3, 43740, -18295):
+                    point.position.x = 178.815
+                    point.position.z = -18295.631
+                elif similar_position(point.position, -158, 45391, -21875):
+                    point.position.x = 191.668
+                    point.position.z = -21934.154
+                elif similar_position(point.position, -1306, 47478, -24337):
+                    point.position.x = -1073.024
+                    point.position.z = -24395.509
+            # Rather cosmetic changes to avoid being spawned against a wall or cliff.
+            for respawn_point in self.level_file.respawnpoints:
+                if similar_position(respawn_point.position, 20460, 4392, 24193):
+                    respawn_point.rotation.rotate_around_z(-0.7)
+                elif similar_position(respawn_point.position, 2584, 34419, -10326):
+                    respawn_point.rotation.rotate_around_z(0.5)
+            # Add an extra respawn point for the last jump's boost ramp.
+            for respawn_point in self.level_file.respawnpoints:
+                if respawn_point.respawn_id == 1:
+                    new_respawn_point = libbol.JugemPoint.new()
+                    new_respawn_point.position.x = -12805.031
+                    new_respawn_point.position.y = 58322.961
+                    new_respawn_point.position.z = -33971.535
+                    new_respawn_point.rotation.set_vectors(*respawn_point.rotation.get_vectors())
+                    new_respawn_point.respawn_id = 14
+                    new_respawn_point.unk1 = 92
+                    new_respawn_point.unk2 = -1
+                    new_respawn_point.unk3 = -1
+                    self.level_file.respawnpoints.append(new_respawn_point)
+            # Also fix the preceding checkpoint index of the respawn points.
+            self.level_file.respawnpoints[0].unk3 = 16
+            self.level_file.respawnpoints[1].unk3 = 59
+            self.level_file.respawnpoints[2].unk3 = 50
+            self.level_file.respawnpoints[3].unk3 = 43
+            self.level_file.respawnpoints[4].unk3 = 38
+            self.level_file.respawnpoints[5].unk3 = 36
+            self.level_file.respawnpoints[6].unk3 = 33
+            self.level_file.respawnpoints[7].unk3 = 29
+            self.level_file.respawnpoints[8].unk3 = 25
+            self.level_file.respawnpoints[9].unk3 = 23
+            self.level_file.respawnpoints[10].unk3 = 20
+            self.level_file.respawnpoints[11].unk3 = 18
+            self.level_file.respawnpoints[12].unk3 = 13
+            self.level_file.respawnpoints[13].unk3 = 10
+            self.level_file.respawnpoints[14].unk3 = 61
+
 
 def find_file(rarc_folder, ending):
     for filename in rarc_folder.files.keys():
@@ -2885,6 +4413,9 @@ if __name__ == "__main__":
     parser.add_argument("--additional", default=None, choices=['model', 'collision'],
                         help="Whether to also load the additional BMD file (3D model) or BCO file "
                         "(collision file).")
+    parser.add_argument("--reverse", action='store_true',
+                        help="If specified, the loaded file will be reversed. The program will "
+                        "exit after that.")
 
     args = parser.parse_args()
 
@@ -2950,10 +4481,24 @@ if __name__ == "__main__":
         editor_gui.show()
 
         if args.load is not None:
-            def load():
-                editor_gui.load_file(args.load, additional=args.additional)
+            if args.reverse:
+                def reverse_save_exit():
+                    editor_gui.load_file(args.load)
+                    try:
+                        editor_gui.action_reverse_official_track()
+                        editor_gui.button_save_level()
+                    except:
+                        traceback.print_exc()
+                        os._exit(1)
+                    os._exit(0)
 
-            QtCore.QTimer.singleShot(0, load)
+                editor_gui.hide()
+                QtCore.QTimer.singleShot(0, reverse_save_exit)
+            else:
+                def load():
+                    editor_gui.load_file(args.load, additional=args.additional)
+
+                QtCore.QTimer.singleShot(0, load)
 
         err_code = app.exec()
 

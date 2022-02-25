@@ -2861,6 +2861,22 @@ class GenEditor(QtWidgets.QMainWindow):
             new_obj.userdata = list(obj.userdata)
             return new_obj
 
+        def clone_map_area(area):
+            new_area = libbol.Area.new()
+            new_area.position = area.position.copy()
+            new_area.scale = area.scale.copy()
+            new_area.rotation.set_vectors(*area.rotation.get_vectors())
+            new_area.check_flag = area.check_flag
+            new_area.area_type = area.area_type
+            new_area.camera_index = area.camera_index
+            new_area.unk1 = area.unk1
+            new_area.unk2 = area.unk2
+            new_area.unkfixedpoint = area.unkfixedpoint
+            new_area.unkshort = area.unkshort
+            new_area.shadow_id = area.shadow_id
+            new_area.lightparam_index = area.lightparam_index
+            return new_area
+
         # Determine which course this is based on the position of the start point, which is assumed
         # unique (and in fact it is unique among the stock courses).
 
@@ -3294,7 +3310,38 @@ class GenEditor(QtWidgets.QMainWindow):
 
         # Other Special Cases ----------------------------------------------------------------------
 
-        if Course.PeachBeach:
+        if Course.LuigiCircuit2:
+            # Enemy points at the entrance of the boost pad need to be reduced, so that karts don't
+            # take a wrong turn in the last second (they wouldn't struggle to get in track since
+            # there are concrete walls). This only affects the fast Luigi Circuit ("2"), as in the
+            # 50cc version there are walls that stop karts from taking wrong turns.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, 7233, 3252, 9388):
+                    point.position.x = 7899.375
+                    point.position.z = 10968.89
+                    point.scale = 600
+                elif similar_position(point.position, -11457, 249, -20429):
+                    point.position.x = -11005.607
+                    point.position.z = -19089.607
+                    point.position.y = 48.403
+                    point.scale = 600
+
+            # Similarly, some checkpoints need to be tweaked, or else the lap completion progress is
+            # restarted if karts take the wrong turn by accident. Things can still go wrong if the
+            # player proceeds to drive in the wrong direction for a long time, but at least
+            # accidents are prevented.
+            for group in self.level_file.checkpoints.groups:
+                for point in group.points:
+                    if similar_position(point.end, 7007, 3627, 11256):
+                        point.end.x = -166.498
+                        point.end.y = 3627.178
+                        point.end.z = 13013.142
+                    elif similar_position(point.end, 7058, 3792, 11778):
+                        point.end.x = -66.188
+                        point.end.y = 3792.661
+                        point.end.z = 13437.938
+
+        elif Course.PeachBeach:
             # In Peach Beach, the respan points around the pipe shortcut didn't need to be rotated
             # 180 degrees. They need to be rotated back.
             for point in self.level_file.respawnpoints:
@@ -3317,6 +3364,21 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.rotation.rotate_around_z(0.4)
                 elif similar_position(point.position, 8758, 2362, 23014):
                     point.rotation.rotate_around_z(0.5)
+
+            # Enemy points near the restored alternate path ned to be tweaked.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, -15500, 593, -3500):
+                    point.position.x = -15063.798
+                elif similar_position(point.position, -14387, 586, -3324):
+                    point.position.x = -14492.327
+            # Also the item box needs to be tweaked.
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, -13214, 1108, 8701):
+                    obj.position.x -= 1200
+                    obj.position.z = -2819.96
+                elif similar_position(obj.position, -13793, 1108, 8698):
+                    obj.position.x -= 1200
+                    obj.position.z = -2819.96
 
         elif Course.DryDryDesert:
             for point in self.level_file.respawnpoints:
@@ -3369,6 +3431,26 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.unk1 = 3
                 elif similar_position(point.position, 24430, 4000, 12000):
                     point.unk1 = 0
+
+            # The first two enemy points need to be tweaked, and scaled, or else CPU karts make a
+            # very awkward turn at the start of the race as if they were chasing a rabbit or
+            # something.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, 21800, 4000, 12130):
+                    point.scale = 2500
+                elif similar_position(point.position, 20860, 4000, 12127):
+                    point.position.x = 18920.894
+                    point.scale = 1400
+
+            # Two more enemy points need to be tweaked, or else CPU karts can end up in the guarded
+            # lanes if hit by shell, struck by lighning, et cetera.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, 7233, 2789, 3312):
+                    point.position.x = 6976.384
+                    point.position.z = 2670.556
+                elif similar_position(point.position, 9587, 2999, 3208):
+                    point.position.x = 9415.858
+                    point.position.z = 2266.76
 
         elif Course.MarioCircuit:
             # Last item boxes are not too useful in the last lap. They will be moved a few curves
@@ -3536,8 +3618,7 @@ class GenEditor(QtWidgets.QMainWindow):
         elif Course.WaluigiStadium:
             # In Waluigi Stadium, a number of item boxes and fire balls are now too high for reach,
             # as in the reverse mode karts don't get that high up. These objects will be moved
-            # downwards slightly. The assumption is that these positions uniquely identify the
-            # objects in the track.
+            # downwards slightly.
             for obj in self.level_file.objects.objects:
                 if similar_position(obj.position, 12879, 3079, -11):
                     obj.position.y -= 425
@@ -3546,28 +3627,32 @@ class GenEditor(QtWidgets.QMainWindow):
                 elif similar_position(obj.position, 12872, 3242, -19):
                     obj.position.y -= 425
                 elif similar_position(obj.position, -8025, 3114, -4947):
-                    obj.position.y -= 850
-                    obj.position.x -= 600
+                    obj.position.y -= 800
                 elif similar_position(obj.position, -8123, 3220, -4953):
-                    obj.position.y -= 850
-                    obj.position.x -= 600
+                    obj.position.y -= 800
                 elif similar_position(obj.position, -8118, 3220, -4953):
-                    obj.position.y -= 850
-                    obj.position.x -= 600
-                elif similar_position(obj.position, -1608, 2454, -10471):
-                    obj.position.y -= 1450
-                    obj.position.x -= 3700
-                elif similar_position(obj.position, -1595, 2593, -10473):
-                    obj.position.y -= 1450
-                    obj.position.x -= 3700
-                elif similar_position(obj.position, -1588, 2593, -10473):
-                    obj.position.y -= 1450
-                    obj.position.x -= 3700
+                    obj.position.y -= 800
+
             for point in self.level_file.respawnpoints:
                 # The automatic attempt to select next enemy point failed in one respawn point.
                 if similar_position(point.position, -10484, 1588, -4949):
                     next_enemy_point = 41
                     point.unk1 = next_enemy_point
+                # The respawn points around the three little slopes needs to be moved to the now
+                # last slope.
+                elif similar_position(point.position, 579, 1154, -10444):
+                    point.position.x = -4388.463
+                    next_enemy_point = 52
+                    point.unk1 = next_enemy_point
+
+            # Enemy points at the deepened segment are adjusted in height.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, 12947, 1242, -6231):
+                    point.position.y = 1035.275
+                elif similar_position(point.position, 12877, 686, -2924):
+                    point.position.y = -146.868
+                elif similar_position(point.position, 12947, 1242, -6231):
+                    point.position.y = 959.507
 
         elif Course.SherbetLand:
             # Cosmetic tweaks for the one respawn point.
@@ -3665,6 +3750,73 @@ class GenEditor(QtWidgets.QMainWindow):
                     obj.position = a + (b - a) / 3.0
                 elif similar_position(obj.position, -6222, 12716, 28839):
                     obj.position = a
+            # Add a new respawn point for the new pipe shortcut in the alternate path.
+            new_respawn_point = libbol.JugemPoint.new()
+            new_respawn_point.position.x = 2120.87
+            new_respawn_point.position.y = 15475
+            new_respawn_point.position.z = -10251.5
+            forward, up, left = new_respawn_point.rotation.get_vectors()
+            forward.x = -0.1365
+            forward.y = 0.0
+            forward.z = -0.9906
+            up.x = 0.0
+            up.y = 1.0
+            up.z = 0.0
+            left.x = -0.9906
+            left.y = 0.0
+            left.z = 0.1365
+            new_respawn_point.rotation.set_vectors(forward, up, left)
+            new_respawn_point.respawn_id = 7
+            next_enemy_point = 43
+            new_respawn_point.unk1 = next_enemy_point
+            new_respawn_point.unk2 = -1
+            new_respawn_point.unk3 = -1
+            self.level_file.respawnpoints.append(new_respawn_point)
+
+            # New areas (type 0) for shadow lighting inside the pipes are required.
+            new_areas = []
+            for area in self.level_file.areas.areas:
+                if similar_position(area.position, 2164, 12350, -2323):  # Existing area type 0.
+                    new_area = clone_map_area(area)
+                    new_area.position.x = 3027
+                    new_area.position.y = 12400 - 700
+                    new_area.position.z = -16100
+                    new_area.scale.x = 14.0  # 700 / 100 * 2 (700 was the radius of the cylinder).
+                    new_area.scale.y = 14.0
+                    new_area.scale.z = 7.0  # The depth is 700.
+                    new_area.rotation = new_area.rotation.default()
+                    new_area.rotation.rotate_around_z(0.33)
+                    new_areas.append(new_area)
+
+                    new_area = clone_map_area(area)
+                    new_area.position.x = 2100
+                    new_area.position.y = 16000 - 700
+                    new_area.position.z = -10400
+                    new_area.scale.x = 14.0  # 700 / 100 * 2 (700 was the radius of the cylinder).
+                    new_area.scale.y = 14.0
+                    new_area.scale.z = 7.0  # The height was 700.
+                    new_area.rotation = new_area.rotation.default()
+                    new_area.rotation.rotate_around_z(1.71)
+                    new_areas.append(new_area)
+            self.level_file.areas.areas.extend(new_areas)
+
+            # Also an area for ceiling (type 2) in the entry pipe, where karts could purposely stand
+            # still before fully enterring the pipe (a blue shell could strike).
+            new_areas = []
+            for area in self.level_file.areas.areas:
+                if similar_position(area.position, 7312, 11549, 10576):  # Existing area type 2.
+                    new_area = clone_map_area(area)
+                    inner_cylinder_factor = 0.75
+                    new_area.position.x = 3027
+                    new_area.position.y = 12400 - 700 * inner_cylinder_factor
+                    new_area.position.z = -16100
+                    new_area.scale.x = 14.0 * inner_cylinder_factor
+                    new_area.scale.y = 14.0 * inner_cylinder_factor
+                    new_area.scale.z = 7.0  # The depth is 700.
+                    new_area.rotation = new_area.rotation.default()
+                    new_area.rotation.rotate_around_z(0.33)
+                    new_areas.append(new_area)
+            self.level_file.areas.areas.extend(new_areas)
 
         elif Course.DKMountain:
             # In DK Mountain, the barrel cannon needs to be replaced, reoriented and reconnected to
@@ -3693,6 +3845,17 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.position.y = 10500
                     point.position.z = 13793.222
                     point.rotation.rotate_around_z(0.2)
+            # Enemy points towards the barrel cannon need to be more strict (less scale factor), or
+            # else CPU karts can get stuck against the metallic fence.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, 111, 33802, -59231):
+                    point.position.x = -3.272
+                    point.position.z = -59100.749
+                    point.scale = 900
+                elif similar_position(point.position, -253, 33824, -57218):
+                    point.position.x = -318.927
+                    point.position.z = -56857.395
+                    point.scale = 700
             # Add an extra respawn point. Karts can now fall through the cliff if the cannon shoots
             # too close to the right-hand side (where the gap is).
             for respawn_point in self.level_file.respawnpoints:
@@ -3751,6 +3914,13 @@ class GenEditor(QtWidgets.QMainWindow):
                     left.y = 0.0479
                     left.z = 0.6512
                     camera.rotation.set_vectors(forward, up, left)
+            # And another static camera that was showing the decent needs to be reversed, so that it
+            # ends up pointing at the cannon now.
+            for camera in self.level_file.cameras:
+                if similar_position(camera.position, -16282, 7411, -17102):
+                    aux = camera.position2
+                    camera.position2 = camera.position3
+                    camera.position3 = aux
 
             # Move item boxes so they can be at reach, and add some more item boxes in the uphill,
             # as it would otherwise be slow paced/boring (compared to the original downhill).
@@ -3765,17 +3935,18 @@ class GenEditor(QtWidgets.QMainWindow):
                 elif similar_position(obj.position, 8020, 29434, -58221):
                     item_boxes.append(obj)
             for item_box in item_boxes:
-                item_box.position.y = 29210
+                # Because the slope has been made less steep.
+                item_box.position.y = 28840
             for item_box in item_boxes:
                 clone_item_box = clone_map_object(item_box)
                 clone_item_box.position.x += 700
-                clone_item_box.position.y -= 5500
+                clone_item_box.position.y = 23710
                 clone_item_box.position.z += 12500
                 self.level_file.objects.objects.append(clone_item_box)
             for item_box in item_boxes:
                 clone_item_box = clone_map_object(item_box)
                 clone_item_box.position.x -= 15300
-                clone_item_box.position.y -= 15200
+                clone_item_box.position.y = 14010
                 clone_item_box.position.z += 25300
                 self.level_file.objects.objects.append(clone_item_box)
             # Move the now last four item boxes closer to the new landing area, or else there is no
@@ -3834,6 +4005,11 @@ class GenEditor(QtWidgets.QMainWindow):
             assert checkpointgroups[0].points[56].unk2 == 1
             checkpointgroups[0].points[55].unk2 = 1
             checkpointgroups[0].points[56].unk2 = 0
+            # Enemy point at the highest steep slope needs to be tweaked as the slope was also
+            # smoothened.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, 7453, 29227, -58297):
+                    point.position.y = 29059.793
 
         elif Course.WarioColosseum:
             # In Wario Colosseum, an invisible cannon needs to be added as a lift.
@@ -3841,9 +4017,9 @@ class GenEditor(QtWidgets.QMainWindow):
                 if similar_position(point.position, -154, 28824, -61):
                     next_enemy_point = 101
                     point.unk1 = next_enemy_point
-                    point.position.x = 800
+                    point.position.x = 1555
                     point.position.y = 32000
-                    point.position.z = 288
+                    point.position.z = 667
                     point.rotation = point.rotation.default()
                     point.rotation.rotate_around_z(5.8992)
                     cannon = libbol.MapObject.new()
@@ -3865,27 +4041,35 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.position.z = 0
             # Some item boxes need to be moved closer to the edge now.
             for obj in self.level_file.objects.objects:
+                vertical_offset = 135
+                horizontal_offset = 310
+                # First four item boxes after starting line.
                 if similar_position(obj.position, -5460, 22449, -13210):
-                    obj.position.x = -6558.8
-                    obj.position.y = 22268
+                    obj.position.x = -6875 + horizontal_offset
+                    obj.position.y = 22179.4 + vertical_offset
                 elif similar_position(obj.position, -5460, 22449, -12789):
-                    obj.position.x = -6558.8
-                    obj.position.y = 22268
+                    obj.position.x = -6875 + horizontal_offset
+                    obj.position.y = 22179.4 + vertical_offset
                 elif similar_position(obj.position, -5460, 22449, -12397):
-                    obj.position.x = -6558.8
-                    obj.position.y = 22268
+                    obj.position.x = -6875 + horizontal_offset
+                    obj.position.y = 22179.4 + vertical_offset
                 elif similar_position(obj.position, -5448, 22449, -12006):
-                    obj.position.x = -6558.8
-                    obj.position.y = 22268
-                elif similar_position(obj.position, -861, 23783, 11472):
-                    obj.position.x = -312.2
-                    obj.position.y = 23883
-                elif similar_position(obj.position, 16030, 25445, 13653):
-                    obj.position.x = 16195.6
-                    obj.position.y = 25300
-                elif similar_position(obj.position, 16031, 25445, 13653):
-                    obj.position.x = 16195.6
-                    obj.position.y = 25300
+                    obj.position.x = -6875 + horizontal_offset
+                    obj.position.y = 22179.4 + vertical_offset
+                # Last before finish line.
+                elif similar_position(obj.position, -861, 23783, 11472):  # Item box and fire balls.
+                    obj.position.x = 0.000107 - horizontal_offset
+                    obj.position.y = 23793.7 + vertical_offset
+                    obj.position.z = 11515.9
+                # Last but one before finish line.
+                elif similar_position(obj.position, 16030, 25445, 13653):  # Item box.
+                    obj.position.x = 16506.1 - horizontal_offset
+                    obj.position.y = 25165.8 + vertical_offset
+                    obj.position.z = 13705.2
+                elif similar_position(obj.position, 16031, 25445, 13653):  # Fire circle.
+                    obj.position.x = 16506.1 - horizontal_offset
+                    obj.position.y = 25165.8 + vertical_offset
+                    obj.position.z = 13705.2
             # Three respawn points need to be moved further away from the jump, so that heavy karts
             # have a chance to speed up before taking the jump.
             for respawn_point in self.level_file.respawnpoints:
@@ -4095,21 +4279,54 @@ class GenEditor(QtWidgets.QMainWindow):
                 elif similar_position(obj.position, 10943, 8427, -19846):
                     obj.position = b
 
+            # With the platform being raised (for enabling the alternate path), enemy points and
+            # item boxes need to be tweaked.
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, -15375, 11163, -12717):
+                    obj.position.y += 2000
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, -9591, 11944, -12840):
+                    point.position.y = 12283.523
+                elif similar_position(point.position, -12826, 11345, -12765):
+                    point.position.x = -14124.813
+                    point.position.y = 12975.959
+                elif similar_position(point.position, -16940, 11163, -12643):
+                    point.position.y += 2000
+                elif similar_position(point.position, -21012, 12368, -13661):
+                    point.position.x = -20763.656
+                    point.position.y = 13379.541
+                    point.position.z = -13383.43
+
         elif Course.BowsersCastle:
-            # In Bowser's Castle, a number of respawn points need their preceding checkpoint index
-            # reset.
+            # In Bowser's Castle, the last respawn point needs to be tweaked to prevent a crash when
+            # karts touch the associated dead zone (`0x0F00`). If we don't move it, then its
+            # preceding checkpoint would be the last checkpoint, which causes a crash in the game.
             for respawn_point in self.level_file.respawnpoints:
                 if similar_position(respawn_point.position, 3600, 8109, 13150):
-                    respawn_point.unk3 = 63
-                elif similar_position(respawn_point.position, -2266, 8518, 24767):
-                    respawn_point.unk3 = 3
+                    respawn_point.position.x = 3600.329
+                    respawn_point.position.y = 7175.91
+                    respawn_point.position.z = 6116.826
+                    respawn_point.unk3 = 62  # Preceding checkpoint.
+            # The respawn points near the old final jump (where the new wooden bridge is now) can
+            # be advanced a little bit, so the penalty is a bit less stressed.
+            for respawn_point in self.level_file.respawnpoints:
+                if similar_position(respawn_point.position, -2266, 8518, 24767):
+                    respawn_point.position.x = -6265.218
+                    respawn_point.position.y = 10193.2
+                    respawn_point.unk1 = 7  # Next enemy point.
+                    respawn_point.unk3 = 5  # Preceding checkpoint.
                 elif similar_position(respawn_point.position, -2755, 8662, 24777):
-                    respawn_point.unk3 = 3
-            # A respawn point is too close to the edge.
+                    respawn_point.position.x = -6265.218
+                    respawn_point.position.y = 10193.2
+                    respawn_point.unk1 = 7  # Next enemy point.
+                    respawn_point.unk3 = 5  # Preceding checkpoint.
+            # A respawn point (near the lava shortcut) is too close to the edge.
             for respawn_point in self.level_file.respawnpoints:
                 if similar_position(respawn_point.position, -25361, 8819, 20850):
-                    respawn_point.position.x = -26678.6
-                    respawn_point.position.z = 19907.6
+                    respawn_point.position.x = -26502.2
+                    respawn_point.position.z = 20968.8
+                    respawn_point.rotation.rotate_around_z(0.8)
+                    respawn_point.unk1 = 33  # Next enemy point.
             # Another respawn point too close to a cliff.
             for respawn_point in self.level_file.respawnpoints:
                 if similar_position(respawn_point.position, -11688, 5856, -12973):
@@ -4122,6 +4339,17 @@ class GenEditor(QtWidgets.QMainWindow):
                     respawn_point.position.x = -3093.5
                     respawn_point.position.z = 15636.799
                     respawn_point.rotation.rotate_around_z(-pi / 2)
+            # A couple of respawn points need to be rotated slightly, as they are rather facing to
+            # the lava again.
+            for respawn_point in self.level_file.respawnpoints:
+                if similar_position(respawn_point.position, -30462, 8116, 17398):
+                    respawn_point.position.x = -31302.455
+                    respawn_point.position.z = 17083.891
+                    respawn_point.rotation.rotate_around_z(-0.8)
+                elif similar_position(respawn_point.position, -30371, 8132, 17941):
+                    respawn_point.position.x = -31248.616
+                    respawn_point.position.z = 17777.162
+                    respawn_point.rotation.rotate_around_z(-0.8)
             # Some enemy points need to be slightly replaced, or else the AI karts can be too dumb
             # against walls.
             for point in self.level_file.enemypointgroups.points():
@@ -4132,8 +4360,8 @@ class GenEditor(QtWidgets.QMainWindow):
                 elif similar_position(point.position, -11711, 6213, -9293):
                     point.scale = 700
                 elif similar_position(point.position, 2265, 6937, -17314):
-                    point.position.x = 2885.927
-                    point.position.z = -19695.056
+                    point.position.x = 2485.527
+                    point.position.z = -19180.256
                     point.scale = 700
                 elif similar_position(point.position, 2229, 6937, -25547):
                     point.position.x = 1947.2
@@ -4145,12 +4373,12 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.position.x = 3662.113
                     point.position.z = -25035.881
                 elif similar_position(point.position, 3641, 6937, -21705):
-                    point.position.x = 3829.853
+                    point.position.x = 3644.253
                     point.position.z = -23567.157
                     point.scale = 800
                 elif similar_position(point.position, 4931, 6937, -17307):
-                    point.position.x = 4360.896
-                    point.position.z = -19713.352
+                    point.position.x = 4639.296
+                    point.position.z = -19156.552
                     point.scale = 700
                 elif similar_position(point.position, 2408, 6937, -9105):
                     point.position.x = 2290.373
@@ -4182,6 +4410,19 @@ class GenEditor(QtWidgets.QMainWindow):
                 elif similar_position(point.position, -24457, 8829, 22795):
                     point.position.x = -25248.8
                     point.position.z = 22141.699
+            # Enemy point at the stretched segment is adjusted.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, -11690, 6350, -6038):
+                    point.position.x = -11690.782
+                    point.position.y = 6817.032
+                    point.position.z = -7371.771
+            # The old area (type 5) that was present in the last jump needs to be removed as there
+            # is no jump anymore. (At this point, it is not fully known what these area types mean,
+            # but they always appear in jumps.)
+            for area in list(self.level_file.areas.areas):
+                if similar_position(area.position, -7263, 6057, 25103):
+                    self.level_file.areas.areas.remove(area)
+                    break
 
         elif Course.RainbowRoad:
             # In Rainbow Road, the cannon needs to be replaced, and its orientation flipped.
@@ -4202,11 +4443,11 @@ class GenEditor(QtWidgets.QMainWindow):
             # respawn point. And some item boxes can be added as well.
             for point in self.level_file.respawnpoints:
                 if similar_position(point.position, -8990, 22984, 3537):
-                    next_enemy_point = 69
+                    next_enemy_point = 70
                     point.unk1 = next_enemy_point
-                    point.position.x = -11961.139
-                    point.position.y = 19849.914
-                    point.position.z = 7157.754
+                    point.position.x = -9249.727
+                    point.position.y = 22461.048
+                    point.position.z = 3967.685
             for point in self.level_file.enemypointgroups.points():
                 if similar_position(point.position, -14867, 20691, 10641):
                     point.position.y = 19381.551
@@ -4310,6 +4551,16 @@ class GenEditor(QtWidgets.QMainWindow):
             # AI karts need to be guided away from the fences in the uphill, or else they could get
             # stuck.
             for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, 2367, 34102, -9713):
+                    point.position.x = 2689.621
+                    point.position.z = -9825.396
+                elif similar_position(point.position, 2555, 34864, -11693):
+                    point.position.x = 2905.119
+                    point.position.z = -11903.349
+                elif similar_position(point.position, 1752, 34893, -12407):
+                    point.position.x = 1668.699
+                    point.position.z = -12827.196
+            for point in self.level_file.enemypointgroups.points():
                 if similar_position(point.position, -707, 41904, -15320):
                     point.position.x = -474.109
                     point.position.z = -15378.421
@@ -4346,7 +4597,7 @@ class GenEditor(QtWidgets.QMainWindow):
             self.level_file.respawnpoints[1].unk3 = 59
             self.level_file.respawnpoints[2].unk3 = 50
             self.level_file.respawnpoints[3].unk3 = 43
-            self.level_file.respawnpoints[4].unk3 = 38
+            self.level_file.respawnpoints[4].unk3 = 39
             self.level_file.respawnpoints[5].unk3 = 36
             self.level_file.respawnpoints[6].unk3 = 33
             self.level_file.respawnpoints[7].unk3 = 29

@@ -3210,7 +3210,9 @@ class GenEditor(QtWidgets.QMainWindow):
             # As documented in http://wiki.tockdom.com/wiki/BOL_(File_Format), the first point in
             # the group stores whether the group can be followed by enemies and items, or only by
             # items. This value needs to be preserved.
-            only_items_follow = group.points[0].groupsetting == 1
+            # NOTE: It seems only the lower byte is relevant. The higher byte is something else.
+            ONLY_ITEMS_FOLLOW = 0x0001
+            only_items_follow = group.points[0].groupsetting & 0x00FF == ONLY_ITEMS_FOLLOW
 
             # The rest of the settings will be reset. At this point, we (the community) don't yet
             # fully understand the purpose of these bytes. To avoid erratic behavior, all bytes will
@@ -3226,7 +3228,7 @@ class GenEditor(QtWidgets.QMainWindow):
             group.points.reverse()
 
             if only_items_follow:
-                group.points[0].groupsetting = 1
+                group.points[0].groupsetting |= ONLY_ITEMS_FOLLOW
 
         # After reversing, the former last group needs to become the new first group. This
         # guarantees that the start of the course remains aligned with the first enemy point of the
@@ -3738,6 +3740,8 @@ class GenEditor(QtWidgets.QMainWindow):
             for point in self.level_file.respawnpoints:
                 if similar_position(point.position, 3018, 13860, -13285):
                     point.rotation.rotate_around_z(-1.0)
+                elif similar_position(point.position, 8601, 12936, -3799):
+                    point.rotation.rotate_around_z(0.4)
             # Move the last item boxes, so that the now last curve can be fun.
             for obj in self.level_file.objects.objects:
                 a = type(obj.position)(-1951.3, 13000, 20239.401)
@@ -3772,6 +3776,20 @@ class GenEditor(QtWidgets.QMainWindow):
             new_respawn_point.unk2 = -1
             new_respawn_point.unk3 = -1
             self.level_file.respawnpoints.append(new_respawn_point)
+
+            # The respawn point assigned to the shortcut point needs to be moved further back, to
+            # penalize a failed shortcut.
+            for point in self.level_file.respawnpoints:
+                if similar_position(point.position, -9107, 13031, 15855):
+                    point.position.x = -10527.408
+                    point.position.z = 9823.485
+                    point.rotation.rotate_around_z(pi + 0.15)
+                    point.unk1 = 84  # Next enemy point.
+                # Near this pond there is another slightly misplaced respawn point that can do with
+                # some cosmetic tweaks.
+                elif similar_position(point.position, -10674, 13057, 10226):
+                    point.position.x = -9147.239
+                    point.position.z = 8964.823
 
             # New areas (type 0) for shadow lighting inside the pipes are required.
             new_areas = []
@@ -3817,6 +3835,20 @@ class GenEditor(QtWidgets.QMainWindow):
                     new_area.rotation.rotate_around_z(0.33)
                     new_areas.append(new_area)
             self.level_file.areas.areas.extend(new_areas)
+
+            # In the pond shortcut, checkpoints need to be tweaked, or else lap completion can
+            # break, as there is a sweep gap that karts can go through on the left-hand side.
+            for group in self.level_file.checkpoints.groups:
+                for point in group.points:
+                    if similar_position(point.start, -7386, 31184, 11797):
+                        point.start.x = -6158
+                        point.start.z = 11076
+                        # Also, it seems this flag determines whether the following checkpoints can
+                        # be skipped. Swap the values with the original check point that had this
+                        # flag set.
+                        point.unk1 = 1
+                    elif similar_position(point.start, -6067, 31184, 11475):
+                        point.unk1 = 0
 
         elif Course.DKMountain:
             # In DK Mountain, the barrel cannon needs to be replaced, reoriented and reconnected to

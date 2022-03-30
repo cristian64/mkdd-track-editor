@@ -1,5 +1,8 @@
 import traceback
 import os
+import sys
+cwd = sys.argv[0].rsplit('\\', 1)[0]  # changes current working directory to always be on the editor's directory as every paths are hardcoded to be loaded from here
+os.chdir(cwd)  # changes current working directory to always be on the editor's directory as every paths are hardcoded to be loaded from here
 from timeit import default_timer
 from copy import deepcopy
 from io import TextIOWrapper, BytesIO, StringIO
@@ -1677,7 +1680,6 @@ def get_file_safe(rarc_folder, ending):
     return None
 
 
-import sys
 def except_hook(cls, exception, traceback):
     sys.__excepthook__(cls, exception, traceback)
 

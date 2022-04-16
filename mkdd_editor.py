@@ -815,6 +815,18 @@ class GenEditor(QtWidgets.QMainWindow):
         reverse_official_track_action.setShortcut("Ctrl+`")
         reverse_official_track_action.triggered.connect(self.action_reverse_official_track)
 
+        def copy_position():
+            lines = []
+            for position in self.level_view.selected_positions:
+                line = f'{int(position.x)}, {int(position.y)}, {int(position.z)}'
+                lines.append(line)
+            QtWidgets.QApplication.clipboard().setText('\n'.join(lines))
+            print(f'Clipboard changed: {"  ".join(lines)}')
+
+        copy_position_action = self.misc_menu.addAction("Copy Position")
+        copy_position_action.setShortcut("Ctrl+Shift+P")
+        copy_position_action.triggered.connect(copy_position)
+
     def action_hook_into_dolphion(self):
         error = self.dolphin.initialize()
         if error != "":

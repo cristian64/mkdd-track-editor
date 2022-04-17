@@ -2897,6 +2897,86 @@ class GenEditor(QtWidgets.QMainWindow):
         def similar_position(p, x, y, z):
             return abs(p.x - x) < 1.0 and abs(p.y - y) < 1.0 and abs(p.z - z) < 1.0
 
+        def move_swerve(x, y, z, x2, y2, z2):
+            for src in self.level_file.enemypointgroups.points():
+                if not similar_position(src.position, x, y, z):
+                    continue
+                for dst in self.level_file.enemypointgroups.points():
+                    if not similar_position(dst.position, x2, y2, z2):
+                        continue
+                    dst.swerve = src.swerve
+                    src.swerve = 0
+                    return
+            raise AssertionError('Swerve in enemy points not moved')
+
+        def swap_swerve(x, y, z, x2, y2, z2):
+            for a in self.level_file.enemypointgroups.points():
+                if not similar_position(a.position, x, y, z):
+                    continue
+                for b in self.level_file.enemypointgroups.points():
+                    if not similar_position(b.position, x2, y2, z2):
+                        continue
+                    a.swerve, b.swerve = b.swerve, a.swerve
+                    return
+            raise AssertionError('Swerve in enemy points not swapped')
+
+        def set_swerve(x, y, z, swerve):
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, x, y, z):
+                    point.swerve = swerve
+                    return
+            raise AssertionError('Swerve in enemy point not set')
+
+        def move_drift(x, y, z, x2, y2, z2):
+            for src in self.level_file.enemypointgroups.points():
+                if not similar_position(src.position, x, y, z):
+                    continue
+                for dst in self.level_file.enemypointgroups.points():
+                    if not similar_position(dst.position, x2, y2, z2):
+                        continue
+                    dst.driftdirection = src.driftdirection
+                    dst.driftacuteness = src.driftacuteness
+                    dst.driftduration = src.driftduration
+                    src.driftdirection = 0
+                    src.driftacuteness = 0
+                    src.driftduration = 0
+                    return
+            raise AssertionError('Drifting in enemy points not moved')
+
+        def swap_drift(x, y, z, x2, y2, z2):
+            for a in self.level_file.enemypointgroups.points():
+                if not similar_position(a.position, x, y, z):
+                    continue
+                for b in self.level_file.enemypointgroups.points():
+                    if not similar_position(b.position, x2, y2, z2):
+                        continue
+                    a.driftdirection, b.driftdirection = b.driftdirection, a.driftdirection
+                    a.driftacuteness, b.driftacuteness = b.driftacuteness, a.driftacuteness
+                    a.driftduration, b.driftduration = b.driftduration, a.driftduration
+                    return
+            raise AssertionError('Drifting in enemy points not swapped')
+
+        def set_drift(x, y, z, direction, acuteness, duration):
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, x, y, z):
+                    point.driftdirection = direction
+                    point.driftacuteness = acuteness
+                    point.driftduration = duration
+                    return
+            raise AssertionError('Drifting in enemy point not set')
+
+        def del_enemy_point(x, y, z):
+            for i, point in enumerate(list(self.level_file.enemypointgroups.points())):
+                if similar_position(point.position, x, y, z):
+                    for group in self.level_file.enemypointgroups.groups:
+                        if point in group.points:
+                            group.points.remove(point)
+                            for respawn_point in self.level_file.respawnpoints:
+                                if respawn_point.unk1 > i:
+                                    respawn_point.unk1 -= 1
+                            return
+            raise AssertionError('Enemy point not deleted')
+
         def clone_map_object(obj):
             new_obj = libbol.MapObject.new()
             new_obj.position = obj.position.copy()
@@ -3262,25 +3342,20 @@ class GenEditor(QtWidgets.QMainWindow):
             # As documented in http://wiki.tockdom.com/wiki/BOL_(File_Format), the first point in
             # the group stores whether the group can be followed by enemies and items, or only by
             # items. This value needs to be preserved.
-            # NOTE: It seems only the lower byte is relevant. The higher byte is something else.
-            ONLY_ITEMS_FOLLOW = 0x0001
-            only_items_follow = group.points[0].groupsetting & 0x00FF == ONLY_ITEMS_FOLLOW
+            itemsonly = group.points[0].itemsonly
+            group.points[0].itemsonly = 0
 
-            # The rest of the settings will be reset. At this point, we (the community) don't yet
-            # fully understand the purpose of these bytes. To avoid erratic behavior, all bytes will
-            # be discarded. This implies that the AI's skills are slightly depleted. For example,
-            # the AI won't know when to start drifting on sharp curves.
             for point in group.points:
-                point.pointsetting = 0
-                point.groupsetting = 0
-                point.pointsetting2 = 0
-                point.unk1 = 0
-                point.unk2 = 0
+                # Enemy points with drifting enabled will only reverse their drifting direction.
+                if point.driftdirection:
+                    point.driftdirection = 1 if point.driftdirection == 2 else 2
+
+                # Swerve needs to be reversed as well.
+                point.swerve *= -1
 
             group.points.reverse()
 
-            if only_items_follow:
-                group.points[0].groupsetting |= ONLY_ITEMS_FOLLOW
+            group.points[0].itemsonly = itemsonly
 
         # After reversing, the former last group needs to become the new first group. This
         # guarantees that the start of the course remains aligned with the first enemy point of the
@@ -3329,7 +3404,7 @@ class GenEditor(QtWidgets.QMainWindow):
             if point.link in new_links_names:
                 point.link = new_links_names[point.link]
         # Note that the groups are being sorted twice, to deprioritize items-only groups.
-        self.level_file.enemypointgroups.groups.sort(key=lambda group: group.points[0].groupsetting)
+        self.level_file.enemypointgroups.groups.sort(key=lambda group: group.points[0].itemsonly)
         self.level_file.enemypointgroups.groups.sort(key=lambda group: group.points[0].link)
 
         # Finally, rebuild IDs and indices depending on the position of the group in the list.
@@ -3364,36 +3439,45 @@ class GenEditor(QtWidgets.QMainWindow):
 
         # Other Special Cases ----------------------------------------------------------------------
 
-        if Course.LuigiCircuit2:
-            # Enemy points at the entrance of the boost pad need to be reduced, so that karts don't
-            # take a wrong turn in the last second (they wouldn't struggle to get in track since
-            # there are concrete walls). This only affects the fast Luigi Circuit ("2"), as in the
-            # 50cc version there are walls that stop karts from taking wrong turns.
-            for point in self.level_file.enemypointgroups.points():
-                if similar_position(point.position, 7233, 3252, 9388):
-                    point.position.x = 7899.375
-                    point.position.z = 10968.89
-                    point.scale = 600
-                elif similar_position(point.position, -11457, 249, -20429):
-                    point.position.x = -11005.607
-                    point.position.z = -19089.607
-                    point.position.y = 48.403
-                    point.scale = 600
+        if Course.LuigiCircuit or Course.LuigiCircuit2:
+            if Course.LuigiCircuit2:
+                # Enemy points at the entrance of the boost pad need to be reduced, so that karts
+                # don't take a wrong turn in the last second (they wouldn't struggle to get in track
+                # since there are concrete walls). This only affects the fast Luigi Circuit ("2"),
+                # as in the 50cc version there are walls that stop karts from taking wrong turns.
+                for point in self.level_file.enemypointgroups.points():
+                    if similar_position(point.position, 7233, 3252, 9388):
+                        point.position.x = 7899.375
+                        point.position.z = 10968.89
+                        point.scale = 600
+                    elif similar_position(point.position, -11457, 249, -20429):
+                        point.position.x = -11005.607
+                        point.position.z = -19089.607
+                        point.position.y = 48.403
+                        point.scale = 600
 
-            # Similarly, some checkpoints need to be tweaked, or else the lap completion progress is
-            # restarted if karts take the wrong turn by accident. Things can still go wrong if the
-            # player proceeds to drive in the wrong direction for a long time, but at least
-            # accidents are prevented.
-            for group in self.level_file.checkpoints.groups:
-                for point in group.points:
-                    if similar_position(point.end, 7007, 3627, 11256):
-                        point.end.x = -166.498
-                        point.end.y = 3627.178
-                        point.end.z = 13013.142
-                    elif similar_position(point.end, 7058, 3792, 11778):
-                        point.end.x = -66.188
-                        point.end.y = 3792.661
-                        point.end.z = 13437.938
+                # Similarly, some checkpoints need to be tweaked, or else the lap completion
+                # progress is restarted if karts take the wrong turn by accident. Things can still
+                # go wrong if the player proceeds to drive in the wrong direction for a long time,
+                # but at least accidents are prevented.
+                for group in self.level_file.checkpoints.groups:
+                    for point in group.points:
+                        if similar_position(point.end, 7007, 3627, 11256):
+                            point.end.x = -166.498
+                            point.end.y = 3627.178
+                            point.end.z = 13013.142
+                        elif similar_position(point.end, 7058, 3792, 11778):
+                            point.end.x = -66.188
+                            point.end.y = 3792.661
+                            point.end.z = 13437.938
+
+            move_drift(3730, 3291, 21276, 9202, 3537, 23354)
+            set_drift(-12118, 56, -27173, 2, 150, 150)
+
+            if Course.LuigiCircuit:
+                move_swerve(-9178, 96, -30958, -836, 31, -25916)
+            else:
+                move_swerve(-9178, 96, -30958, -1376, 70, -28406)
 
         elif Course.PeachBeach:
             # In Peach Beach, the respan points around the pipe shortcut didn't need to be rotated
@@ -3434,6 +3518,31 @@ class GenEditor(QtWidgets.QMainWindow):
                     obj.position.x -= 1200
                     obj.position.z = -2819.96
 
+            for point in self.level_file.enemypointgroups.points():
+                # An enemy point near Cock Rock needs to be tweak, or else karts deviate too much to
+                # the shore.
+                if similar_position(point.position, -9600, 678, -7950):
+                    point.position.x = -8819.2
+                    point.position.z = -8429.6
+                # An two more in the last curve before the goal (near the pipe shortcut).
+                elif similar_position(point.position, 7925, 2179, 24059):
+                    point.position.x = 7873.371
+                    point.position.z = 23745.284
+                elif similar_position(point.position, 9168, 2583, 21531):
+                    point.position.x = 9011.303
+                    point.position.z = 21269.924
+
+            move_drift(-431, 714, -22500, 8956, 1174, -22387)
+            set_drift(-9000, 776, -15100, 1, 60, 150)
+            set_drift(-3736, 1245, 20035, 1, 160, 170)
+
+            set_swerve(-3067, 1463, 22469, -1)
+            set_swerve(-789, 1786, 25251, -1)
+
+        elif Course.BabyPark:
+            move_drift(8730, 6000, -2281, 9100, 6000, 2290)
+            move_drift(-8871, 6000, 1921, -9116, 6000, -2117)
+
         elif Course.DryDryDesert:
             for point in self.level_file.respawnpoints:
                 # In Dry Dry Desert, the respawn point at the sinkhole needs to be moved to the
@@ -3468,6 +3577,35 @@ class GenEditor(QtWidgets.QMainWindow):
                     obj.position = a + (b - a) / 3.0 * 2.0
                 elif similar_position(obj.position, -24658, 5445, -12651):
                     obj.position = b
+
+            # The object path of the sand pillar can be reversed (or generally tweaked) as well.
+            for route in self.level_file.routes:
+                if similar_position(route.points[0].position, 16132, 5246, 4455):
+                    route.points.reverse()
+                    for _ in range(16):
+                        route.points.append(route.points.pop(0))
+
+                    for obj in self.level_file.objects.objects:
+                        if obj.objectid == 5003:  # TMapObjSandPillar
+                            obj.position = route.points[0].position.copy()
+
+            set_drift(-25178, 5427, -20962, 0, 0, 0)     # Move...
+            set_drift(-11860, 4937, -27092, 1, 180, 90)  # ...with some tweaks.
+            set_drift(12653, 5196, -28575, 0, 0, 0)     # Move...
+            set_drift(18209, 5840, -24664, 1, 20, 110)  # ...with some tweaks.
+            move_drift(-19287, 4333, 16476, -26016, 5655, 8536)
+
+            move_swerve(-23817, 5364, -25166, -14887, 5328, -28504)
+            move_swerve(-7999, 4544, -23456, -5970, 4392, -23690)
+            move_swerve(-2780, 4144, -26529, 934, 4146, -26011)
+            move_swerve(2222, 4264, -23894, 7203, 4666, -24840)
+            move_swerve(10979, 5004, -28295, 18209, 5840, -24664)
+            move_swerve(15961, 5132, -13920, 14950, 5009, -2195)
+            move_swerve(20551, 5150, -13871, 21265, 5033, -2122)
+            move_swerve(15421, 5794, 12472, 11904, 5841, 16523)
+            move_swerve(15698, 5775, 12312, 12258, 5870, 16363)
+            move_swerve(-24047, 5407, 4497, -24386, 5319, -154)
+            move_swerve(-23680, 5023, 15222, -26091, 5647, 12610)
 
         elif Course.MushroomBridge:
             # In Mushroom Bridge, the respawn points around the pipe shortcut didn't need to be
@@ -3522,6 +3660,32 @@ class GenEditor(QtWidgets.QMainWindow):
                     obj.position = a + (b - a) / 4.0 * 3.0
                 elif similar_position(obj.position, -13932, 1100, 15081):
                     obj.position = b
+
+            move_drift(9182, 1745, -25706, 3127, 1338, -23933)
+            set_drift(-3429, 1118, 16327, 0, 0, 0)   # Move...
+            set_drift(638, 1103, 17492, 1, 20, 110)  # ...with tweaks.
+            move_drift(-13441, 1100, 20407, -4988, 1100, 20553)
+
+            set_swerve(-12062, 1100, -12846, 0)
+            set_swerve(-7421, 1100, -12574, 0)
+            set_swerve(-3859, 1118, -14237, 0)
+            set_swerve(-13880, 1100, -11806, 1)
+            set_swerve(-12062, 1100, -12846, 1)
+            set_swerve(-9196, 1100, -12506, -2)
+            set_swerve(-7421, 1100, -12574, -1)
+            set_swerve(-5636, 1100, -13771, 1)
+            move_swerve(3799, 1192, -17946, 3077, 1170, -16319)
+            move_swerve(9182, 1745, -25706, 3127, 1338, -23933)
+            move_swerve(10654, 3109, 237, 9748, 3067, -2882)
+            set_swerve(12380, 3065, 6983, 0)  # Move...
+            set_swerve(12348, 3121, 3108, 2)  # ...with tweaks.
+            set_swerve(12742, 3095, 5021, 1)
+            set_swerve(11292, 2955, 9528, -2)
+            set_swerve(10681, 2840, 11428, -1)
+            set_swerve(10863, 2838, 13444, 0)
+            set_swerve(12839, 3303, 17138, 1)
+            move_swerve(-3429, 1118, 16327, 638, 1103, 17492)
+            move_swerve(-13441, 1100, 20407, -4203, 1103, 18653)
 
         elif Course.DaisyCruiser:
             # In Daisy Cruiser, when AI karts fall through the sinkhole, they don't know how to use
@@ -3579,7 +3743,7 @@ class GenEditor(QtWidgets.QMainWindow):
             # checkpoint index set, and its orientation tweaked.
             for point in self.level_file.respawnpoints:
                 if similar_position(point.position, -27779, 8499, 2037):
-                    next_enemy_point = 68
+                    next_enemy_point = 60
                     point.unk1 = next_enemy_point
                     point.unk3 = 29
                     point.rotation.rotate_around_z(0.8)
@@ -3661,13 +3825,83 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.position.x = -6719.29
                     point.position.z = -4641.356
 
-            # Move these enemy points further away from the sinkhole.
-            self.level_file.enemypointgroups.groups[1].points[7].position.x -= 400
-            self.level_file.enemypointgroups.groups[1].points[8].position.x -= 300
-            self.level_file.enemypointgroups.groups[1].points[9].position.x += 500
-            self.level_file.enemypointgroups.groups[1].points[10].position.x += 500
-            self.level_file.enemypointgroups.groups[1].points[10].position.z += 100
-            self.level_file.enemypointgroups.groups[1].points[12].position.z -= 50
+            # Move the enemy points further away from the sinkhole.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, 8542, 6500, -3127):
+                    point.position.x = 8142.213
+                    point.position.z = -3127.079
+                elif similar_position(point.position, 8089, 6500, -1186):
+                    point.position.x = 7789.159
+                    point.position.z = -1186.135
+                elif similar_position(point.position, 7559, 6500, 502):
+                    point.position.x = 8059.327
+                    point.position.z = 502.164
+                elif similar_position(point.position, 7049, 6500, 2036):
+                    point.position.x = 7549.738
+                    point.position.z = 2136.31
+                elif similar_position(point.position, 5849, 6500, 2726):
+                    point.position.x = 5849.263
+                    point.position.z = 2726.01
+                elif similar_position(point.position, 4145, 6500, 2649):
+                    point.position.x = 4145.449
+                    point.position.z = 2599.426
+                elif similar_position(point.position, -78, 6419, 2568):
+                    point.position.x = 1105.2
+                    point.position.z = 2632.4
+
+            for point in self.level_file.enemypointgroups.points():
+                # Some points after the first big U-turn were too accented.
+                if similar_position(point.position, 26300, 7250, -4370):
+                    point.position.x = 25992.0
+                    point.position.z = -4766.0
+                elif similar_position(point.position, 22650, 7294, -5700):
+                    point.scale = 1500
+                # And the points before the stairs need to be tweaked, or else karts can end up in
+                # the cone at the back.
+                elif similar_position(point.position, -24535, 6500, 5529):
+                    point.position.z = 5783.759
+                elif similar_position(point.position, -26487, 6500, 5437):
+                    point.position.x = -26929.496
+                    point.position.z = 5922.057
+                elif similar_position(point.position, -29155, 6500, 5463):
+                    point.position.z = 5950.166
+                elif similar_position(point.position, -31115, 6500, 5386):
+                    point.position.x = -31667.016
+                    point.position.z = 5958.966
+                elif similar_position(point.position, -34501, 6500, 4974):
+                    point.position.x = -34869.266
+                    point.position.z = 5122.197
+                elif similar_position(point.position, -37110, 6500, 3832):
+                    point.position.x = -37221.115
+                    point.position.z = 3574.838
+                elif similar_position(point.position, -38264, 6500, 1459):
+                    point.position.x = -38521.682
+                    point.position.z = 1091.93
+                    point.scale = 11000
+
+                # Last straight segment needs to be tweaked to avoid a idiotic hit on a all.
+                elif similar_position(point.position, -3847, 9244, -5151):
+                    point.position.x = -3472
+                    point.position.z = -4668
+                elif similar_position(point.position, -920, 9000, -3651):
+                    point.position.x = -974.038
+                    point.position.z = -3383.619
+
+            move_drift(29225, 7250, -3800, 30650, 7250, 3200)
+            set_drift(-2888, 6500, -595, 1, 10, 100)
+
+            move_swerve(17432, 8289, 4218, 12046, 9000, 2673)
+            set_swerve(29225, 7250, -3800, 0)
+            set_swerve(25992, 7250, -4766, 0)
+            set_swerve(9978, 6500, -3951, -2)
+            swap_swerve(5849, 6500, 2726, 7549, 6500, 2136)
+            move_swerve(4145, 6500, 2599, 8059, 6500, 502)
+            set_swerve(-1415, 6500, 2016, 1)
+            set_swerve(-2332, 6500, 836, 0)
+            set_swerve(-3289, 6500, -2617, -2)
+            set_swerve(-6373, 6499, -2849, 0)
+            set_swerve(-8244, 6499, -3617, 0)
+            set_swerve(-3472, 9244, -4668, 2)
 
         elif Course.WaluigiStadium:
             # In Waluigi Stadium, a number of item boxes and fire balls are now too high for reach,
@@ -3698,6 +3932,11 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.position.x = -4388.463
                     next_enemy_point = 52
                     point.unk1 = next_enemy_point
+                # Cosmetic tweak in the one near the big muddy sand.
+                elif similar_position(point.position, -20674, 997, -4303):
+                    point.position.x = -21401.741
+                    point.position.z = -4707.233
+                    point.rotation.rotate_around_z(-1.0)
 
             # Enemy points at the deepened segment are adjusted in height.
             for point in self.level_file.enemypointgroups.points():
@@ -3707,6 +3946,42 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.position.y = -146.868
                 elif similar_position(point.position, 12947, 1242, -6231):
                     point.position.y = 959.507
+
+            for point in self.level_file.enemypointgroups.points():
+                # Some tweaks near the snakes, to make it less awkward.
+                if similar_position(point.position, -2608, 1071, 11167):
+                    point.position.z = 10852.944
+                elif similar_position(point.position, -7295, 1682, 12188):
+                    point.position.z = 11663.21
+                elif similar_position(point.position, -9965, 1405, 11921):
+                    point.position.z = 11643.297
+                elif similar_position(point.position, -15079, 1000, 10465):
+                    point.position.x = -15079.892
+                    point.position.z = 11047.922
+                elif similar_position(point.position, -17260, 1014, 9637):
+                    point.position.x = -17769.76
+                    point.position.z = 10292.955
+                elif similar_position(point.position, -19495, 1010, 7963):
+                    point.position.x = -19713.939
+                    point.position.z = 7891.166
+                # Tweak to avoid getting into the big muddy sand.
+                if similar_position(point.position, -19927, 1000, 3958):
+                    point.position.x = -20292.757
+                elif similar_position(point.position, -20036, 980, -155):
+                    point.position.x = -20901.0
+
+            move_drift(18981, 1000, -5577, 18579, 1000, -212)
+            set_drift(-15929, 997, -5665, 0, 0, 0)    # Move...
+            set_drift(-20901, 980, -155, 2, 20, 150)  # ...with some tweaks.
+
+            move_swerve(17171, 1002, -6262, 18981, 1000, -5577)
+            move_swerve(13111, 1086, -9100, 16225, 1050, -8143)
+            set_swerve(-17769, 1014, 10292, 1)
+            set_swerve(-19713, 1010, 7891, 0)
+            set_swerve(-20901, 980, -155, 0)
+            swap_swerve(1397, 998, -4968, 3502, 990, -5919)
+            swap_swerve(-6289, 1000, -9605, -7848, 1000, -8062)
+            swap_swerve(-6573, 1000, -944, -8092, 1000, -3868)
 
         elif Course.SherbetLand:
             # Cosmetic tweaks for the one respawn point.
@@ -3729,6 +4004,46 @@ class GenEditor(QtWidgets.QMainWindow):
                 elif similar_position(obj.position, -2321, 1346, -6352):
                     obj.position = b
                     obj.userdata[1] = 1  # Always single prize
+
+            for point in self.level_file.enemypointgroups.points():
+                # Near the stalactites in the cave, points needs to be tweak, or else kart hit the
+                # stalactites in the middle.
+                if similar_position(point.position, 12120, 2110, -4574):
+                    point.position.x = 11755
+                    point.scale = 600
+                elif similar_position(point.position, 10970, 2000, -2914):
+                    point.position.x = 10462.054
+                    point.position.z = -3169.393
+                elif similar_position(point.position, 11192, 1588, -381):
+                    point.position.x = 10090.304
+                    point.position.z = -890.42
+                elif similar_position(point.position, 12095, 1678, -1826):
+                    point.position.x = 12205.4
+                    point.position.z = -1669.0
+                elif similar_position(point.position, 11705, 1484, -2):
+                    point.position.x = 11967.104
+                    point.position.z = -117.62
+
+            move_drift(19391, 1561, 20204, 14501, 1521, 25645)
+            move_drift(11049, 712, 8374, 12624, 1121, 13122)
+            move_drift(20487, 1490, -11339, 17212, 1602, -4303)
+
+            move_swerve(-2884, 1517, 16578, -4630, 1517, 14477)
+            move_swerve(1829, 1521, 18980, -286, 1520, 17573)
+            move_swerve(19875, 1531, 22731, 17385, 1521, 25778)
+            move_swerve(19083, 1590, 17633, 19391, 1561, 20204)
+            move_swerve(17223, 1371, 13140, 18619, 1518, 14989)
+            move_swerve(9886, 918, 10338, 10527, 1002, 12486)
+            move_swerve(12959, 671, 4507, 12288, 592, 6563)
+            set_swerve(14174, 1647, -3571, 0)
+            set_swerve(12205, 1678, -1669, 2)
+            set_swerve(11967, 1484, -117, 1)
+            move_swerve(11755, 2110, -4574, 10090, 1588, -890)
+            move_swerve(20487, 1490, -11339, 20698, 1743, -6566)
+            move_swerve(12943, 1176, -14487, 15379, 1199, -13819)
+            move_swerve(386, 1176, -15909, 5065, 1176, -17616)
+            move_swerve(-1502, 1330, -7658, -755, 1209, -9925)
+            move_swerve(-5203, 1445, -5113, -3370, 1341, -6535)
 
         elif Course.MushroomCity:
             # A number of respawn points need to be tweaked.
@@ -3787,13 +4102,26 @@ class GenEditor(QtWidgets.QMainWindow):
                     obj.position.y -= 1000
                     obj.position.z += 9750
 
+            move_drift(-24648, 4000, -7710, -24500, 4100, 2405)
+            move_drift(-29178, 4000, -5643, -28800, 4000, 400)
+
+            move_swerve(11078, 4000, 13209, 8017, 4000, 8632)
+            move_swerve(35957, 4430, 4000, 40176, 4000, 9464)
+
         elif Course.YoshiCircuit:
-            # Cosmetic tweaks for respawn points.
             for point in self.level_file.respawnpoints:
+                # Cosmetic tweaks for respawn points.
                 if similar_position(point.position, 3018, 13860, -13285):
                     point.rotation.rotate_around_z(-1.0)
                 elif similar_position(point.position, 8601, 12936, -3799):
                     point.rotation.rotate_around_z(0.4)
+                # Another tweak near the finish line to prevent CPU karts falling again after
+                # respawning.
+                elif similar_position(point.position, -2566, 12997, 18698):
+                    point.position.x = -466.27
+                    point.position.z = 21580.031
+                    point.rotation.rotate_around_z(-1.5)
+                    point.unk1 = 102  # Next enemy point.
             # Move the last item boxes, so that the now last curve can be fun.
             for obj in self.level_file.objects.objects:
                 a = type(obj.position)(-1951.3, 13000, 20239.401)
@@ -3829,8 +4157,8 @@ class GenEditor(QtWidgets.QMainWindow):
             new_respawn_point.unk3 = -1
             self.level_file.respawnpoints.append(new_respawn_point)
 
-            # The respawn point assigned to the shortcut point needs to be moved further back, to
-            # penalize a failed shortcut.
+            # The respawn point assigned to the pond shortcut point needs to be moved further back,
+            # to penalize a failed shortcut.
             for point in self.level_file.respawnpoints:
                 if similar_position(point.position, -9107, 13031, 15855):
                     point.position.x = -10527.408
@@ -3902,7 +4230,111 @@ class GenEditor(QtWidgets.QMainWindow):
                     elif similar_position(point.start, -6067, 31184, 11475):
                         point.unk1 = 0
 
+            for point in self.level_file.enemypointgroups.points():
+                # Tweaks on second curve, to avoid eating the grass after the first curve.
+                if similar_position(point.position, 13054, 12705, 25221):
+                    point.position.x = 13445.357
+                    point.position.z = 25075.243
+                elif similar_position(point.position, 12946, 12705, 23074):
+                    point.position.x = 13532.05
+                    point.position.z = 23220.627
+                # Some points in the crest need to be tweaked (some will be removed later), to make it smoother, or else
+                # things are too erratic, and the entrance too the tunnel makes it bad generally.
+                elif similar_position(point.position, 7669, 12945, -7801):
+                    point.position.x = 8232.261
+                    point.position.z = -7903.915
+                elif similar_position(point.position, 8380, 13997, -11808):
+                    point.position.x = 8128.979
+                    point.position.z = -11544.241
+                elif similar_position(point.position, 7587, 13978, -12824):
+                    point.position.x = 7175.526
+                    point.position.z = -12572.723
+                elif similar_position(point.position, 3913, 13866, -13459):
+                    point.position.x = 4030.391
+                    point.position.z = -13820.262
+                elif similar_position(point.position, 2237, 13859, -14333):
+                    point.position.x = 2664.441
+                    point.position.z = -14450.029
+                elif similar_position(point.position, 1502, 13819, -15587):
+                    point.position.x = 1936.383
+                    point.position.z = -15711.146
+                # To avoid over-correcting a bad turn after the tunnel and landing in the water.
+                elif similar_position(point.position, -6971, 12809, 1728):
+                    point.position.x = -6475.546
+                    point.position.z = 2224.673
+                elif similar_position(point.position, -7187, 13141, 3766):
+                    point.position.x = -6691.301
+                    point.position.z = 4076.489
+                elif similar_position(point.position, -7703, 13337, 5546):
+                    point.position.x = -7269.376
+                    point.position.z = 5794.168
+                # Similarly, to avoid an over-corretion in a bad turn that may end in water.
+                elif similar_position(point.position, -3098, 12977, 17983):
+                    point.position.x = -2510.939
+                    point.position.z = 17983.611
+                # And, similarly, in the last turn before the finish line, another over-correction
+                # could occur that could make the kart land in water.
+                elif similar_position(point.position, -1380, 12935, 22768):
+                    point.position.x = -1290.074
+                    point.position.z = 23129.711
+                elif similar_position(point.position, -2456, 12930, 23440):
+                    point.position.x = -2140.189
+                    point.position.z = 23892.609
+                elif similar_position(point.position, -3587, 12911, 24066):
+                    point.position.x = -3451.53
+                    point.position.z = 24337.329
+
+            # Near the crest, there are too many points, with too many erratic turns. Straighten it.
+            del_enemy_point(7037, 12936, -1556)
+            del_enemy_point(8941, 12936, -4622)
+
+            move_drift(-5835, 12704, 31884, -4905, 12863, 24986)
+            move_drift(-10930, 13195, 15985, -11722, 13079, 10613)
+            set_drift(3649, 12736, 2924, 0, 0, 0)     # Move...
+            set_drift(4085, 12172, 6509, 2, 15, 100)  # ...with some tweaks.
+            move_drift(20910, 12705, 8373, 24225, 12705, 11514)
+            move_drift(14270, 12705, 27754, 10768, 12705, 33512)
+
+            # From start to crest.
+            move_swerve(14270, 12705, 27754, 10768, 12705, 33512)
+            move_swerve(13532, 12705, 23220, 13445, 12705, 25075)
+            move_swerve(20910, 12705, 8373, 24225, 12705, 11514)
+            move_swerve(15567, 12705, 9745, 18676, 12705, 9348)
+            move_swerve(2776, 12452, 3478, 2837, 12161, 6117)
+
+            # Crest.
+            move_swerve(6007, 12936, 2045, 4882, 12922, 2765)
+            set_swerve(8232, 12945, -7903, 0)
+            move_swerve(6098, 13950, -13313, 8635, 13914, -10153)
+            move_swerve(1936, 13819, -15711, 6098, 13950, -13313)
+            move_swerve(-4229, 13483, -19254, -393, 13658, -18786)
+            move_swerve(-7297, 13289, -15353, 1936, 13819, -15711)
+
+            # Tunnel.
+            move_swerve(-10108, 13219, -12035, -7845, 13282, -13505)
+            move_swerve(-11028, 12743, -428, -11655, 13179, -12080)
+            move_swerve(-6475, 12809, 2224, -9313, 12746, -451)
+
+            # From tunnel to end.
+            move_swerve(-10367, 13064, 9834, -8362, 13307, 7398)
+            move_swerve(-10930, 13195, 15985, -11722, 13079, 10613)
+            move_swerve(-5243, 12854, 16345, -8093, 12903, 15838)
+            move_swerve(-1290, 12935, 23129, -1119, 12989, 20140)
+            move_swerve(-4313, 12704, 33188, -4905, 12863, 24986)
+
         elif Course.DKMountain:
+            # Remove enemy point group in the old cliff shortcut. Red shells cannot follow it.
+            for point in list(self.level_file.enemypointgroups.groups[2].points):
+                # Use helper function to ensure next enemy point in respawn points are shifted.
+                del_enemy_point(point.position.x, point.position.y, point.position.z)
+            del self.level_file.enemypointgroups.groups[2]
+            # Reassign group IDs.
+            self.level_file.enemypointgroups._group_ids = {}
+            for i, group in enumerate(self.level_file.enemypointgroups.groups):
+                group.id = i
+                self.level_file.enemypointgroups._group_ids[i] = group
+                for point in group.points:
+                    point.group = i
             # In DK Mountain, the barrel cannon needs to be replaced, reoriented and reconnected to
             # their correct respawn point.
             for obj in self.level_file.objects.objects:
@@ -3923,7 +4355,7 @@ class GenEditor(QtWidgets.QMainWindow):
                     obj.rotation.set_vectors(forward, up, left)
             for point in self.level_file.respawnpoints:
                 if similar_position(point.position, -375, 34270, -53659):
-                    next_enemy_point = 77
+                    next_enemy_point = 73
                     point.unk1 = next_enemy_point
                     point.position.x = -12391.407
                     point.position.y = 10500
@@ -3931,12 +4363,10 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.rotation.rotate_around_z(0.2)
             # Enemy points towards the barrel cannon need to be more strict (less scale factor), or
             # else CPU karts can get stuck against the metallic fence.
+            del_enemy_point(111, 33802, -59231)
+            del_enemy_point(400, 33791, -60900)
             for point in self.level_file.enemypointgroups.points():
-                if similar_position(point.position, 111, 33802, -59231):
-                    point.position.x = -3.272
-                    point.position.z = -59100.749
-                    point.scale = 900
-                elif similar_position(point.position, -253, 33824, -57218):
+                if similar_position(point.position, -253, 33824, -57218):
                     point.position.x = -318.927
                     point.position.z = -56857.395
                     point.scale = 700
@@ -3950,7 +4380,7 @@ class GenEditor(QtWidgets.QMainWindow):
                     new_respawn_point.position.z = 15182.344
                     new_respawn_point.rotation.set_vectors(*respawn_point.rotation.get_vectors())
                     new_respawn_point.respawn_id = 7
-                    next_enemy_point = 76
+                    next_enemy_point = 72
                     new_respawn_point.unk1 = next_enemy_point
                     new_respawn_point.unk2 = -1
                     new_respawn_point.unk3 = -1
@@ -4054,15 +4484,28 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.position.x = -14915.867
                     point.position.y = 5706.045
                     point.position.z = -13338.957
+                    point.rotation.rotate_around_z(0.1)
                 elif similar_position(point.position, -11801, 7500, -16852):
-                    point.position.x = -10801.857
+                    point.position.x = -11505.857
                     point.position.y = 7500.582
-                    point.position.z = -16280.864
-                    point.rotation.rotate_around_z(pi / 1.5)
+                    point.position.z = -16181.864
+                    point.rotation.rotate_around_z(pi / 1.9)
                 elif similar_position(point.position, -14610, 9166, -28576):
                     point.rotation.rotate_around_z(-pi / 2)
                 elif similar_position(point.position, 10505, 20014, -38217):
                     point.rotation.rotate_around_z(pi / 2)
+            # A new enemy point needs to be added near the cliff, for the karts that fall from the
+            # upper level.
+            new_respawn_point = libbol.JugemPoint.new()
+            new_respawn_point.position.x = -8800.237
+            new_respawn_point.position.y = 8598.979
+            new_respawn_point.position.z = -21805.806
+            new_respawn_point.rotation.rotate_around_z(1.7)
+            new_respawn_point.respawn_id = 8
+            new_respawn_point.unk1 = 19  # Next enemy point.
+            new_respawn_point.unk2 = -1
+            new_respawn_point.unk3 = -1
+            self.level_file.respawnpoints.append(new_respawn_point)
             # Make bridge wider. On start, there are so many karts that some always fall. This is
             # not such a big issue in the original course, as karts scatter during the first lap.
             for obj in self.level_file.objects.objects:
@@ -4094,6 +4537,68 @@ class GenEditor(QtWidgets.QMainWindow):
             for point in self.level_file.enemypointgroups.points():
                 if similar_position(point.position, 7453, 29227, -58297):
                     point.position.y = 29059.793
+
+            for point in self.level_file.enemypointgroups.points():
+                # Enemy points near the snake turns need to be tweaked (first two turns), or else
+                # karts can end up in the abysm.
+                if similar_position(point.position, -14500, 7480, -22900):
+                    point.position.x = -15270.958
+                    point.position.z = -22900.0
+                elif similar_position(point.position, -12606, 7551, -22400):
+                    point.position.x = -13955.122
+                    point.position.z = -23717.907
+                elif similar_position(point.position, -12455, 7452, -21150):
+                    point.position.x = -12755.841
+                    point.position.z = -20865.825
+                elif similar_position(point.position, -12455, 7412, -19899):
+                    point.position.x = -12645.24
+                    point.position.z = -19547.395
+                elif similar_position(point.position, -12237, 7402, -18537):
+                    point.position.x = -12538.038
+                    point.position.z = -18174.102
+                elif similar_position(point.position, -11887, 7479, -17105):
+                    point.position.x = -11931.155
+                    point.position.z = -16402.443
+                elif similar_position(point.position, -10630, 7728, -16693):
+                    point.position.x = -10565.575
+                    point.position.z = -16210.289
+                elif similar_position(point.position, -11100, 9129, -26004):
+                    point.position.x = -11100.0
+                    point.position.z = -25826.309
+                elif similar_position(point.position, -12200, 9162, -26700):
+                    point.position.x = -12361.0
+                    point.position.z = -26470.0
+                # Some rather costmetic tweaks during the ascent, or else karts skip the item boxes
+                # in the road.
+                elif similar_position(point.position, -6918, 12521, -31247):
+                    point.position.x = -7266.344
+                    point.position.z = -31247.717
+                elif similar_position(point.position, -7423, 14182, -33071):
+                    point.position.x = -7818.573
+                    point.position.z = -33071.27
+                elif similar_position(point.position, -6533, 15394, -34471):
+                    point.position.x = -6991.471
+                    point.position.z = -34581.905
+
+            # Remove some enemy points towards the finish line, to straighten the path a bit, or
+            # else karts have a very bad entrance in the bridge.
+            del_enemy_point(-15095, 6307, 10178)
+            del_enemy_point(-15633, 5709, 8856)
+            del_enemy_point(-16438, 4804, 6542)
+            del_enemy_point(-16326, 4521, 5641)
+
+            set_drift(-10859, 9238, -29607, 0, 0, 0)     # Move...
+            set_drift(-12361, 9162, -26470, 2, 20, 120)  # ...with some tweaks.
+            move_drift(-5428, 11686, -30140, -7105, 10326, -26493)
+
+            # First snake turns.
+            set_swerve(-15622, 7253, -20629, 0)
+            move_swerve(-9499, 8100, -18018, -12538, 7402, -18174)
+            set_swerve(-9499, 8100, -18018, 1)
+
+            # Last big curve after landing.
+            set_swerve(-20500, 8414, 18500, 1)
+            set_swerve(-20900, 8304, 16700, 2)
 
         elif Course.WarioColosseum:
             # In Wario Colosseum, an invisible cannon needs to be added as a lift.
@@ -4210,9 +4715,117 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.position.z = -12882.196
                     point.scale = 600
                 elif similar_position(point.position, -7345, 22179, -12629):
-                    point.position.x = -7253.032
-                    point.position.z = -12895.782
+                    point.position.x = -6059.032
+                    point.position.z = -12696.782
                     point.scale = 600
+                elif similar_position(point.position, -4636, 21576, -12562):
+                    point.position.x = -4437.562
+                    point.position.z = -12681.667
+            # Cosmetic tweaks to some respawn points.
+            for respawn_point in self.level_file.respawnpoints:
+                if similar_position(respawn_point.position, -16658, 17269, 307):
+                    respawn_point.rotation.rotate_around_z(0.10)
+                elif similar_position(respawn_point.position, -1593, 20711, 9094):
+                    respawn_point.rotation.rotate_around_z(0.35)
+                elif similar_position(respawn_point.position, 1426, 21154, -168):
+                    respawn_point.position.y = 20800  #  Avoids bouncing off the ground.
+                    respawn_point.rotation.rotate_around_z(0.25)
+                elif similar_position(respawn_point.position, 17125, 25365, 7093):
+                    respawn_point.rotation.rotate_around_z(0.15)
+
+            for point in self.level_file.enemypointgroups.points():
+                # Enemy point in the first snail ascent, after the boost pad, can be centered a
+                # little bit.
+                if similar_position(point.position, -6213, 18491, 2435):
+                    point.position.x = -6082.172
+                    point.position.z = 2856.917
+                elif similar_position(point.position, -4811, 20815, 1655):
+                    point.position.x = -4653.874
+                    point.position.z = 1916.698
+                # Between the two snail ascents (the tricky part), some points need to be tweaked to
+                # prevent karts from insta falling to the void. Others will be removed later to make
+                # it more straight.
+                elif similar_position(point.position, -1089, 21834, -6448):
+                    point.position.x = -1187.904
+                    point.position.y = 21834.662
+                    point.position.z = -7288.702
+                elif similar_position(point.position, -359, 21731, -7832):
+                    point.position.x = -112.27
+                    point.position.y = 21937.992
+                    point.position.z = -8573.212
+                elif similar_position(point.position, 1354, 21586, -7983):
+                    point.position.x = 1898.284
+                    point.position.y = 21837.668
+                    point.position.z = -8526.584
+                elif similar_position(point.position, 7031, 22370, -3765):
+                    point.position.x = 7237.564
+                    point.position.y = 22451.553
+                    point.position.z = -3868.946
+                elif similar_position(point.position, 7325, 22688, -2074):
+                    point.position.x = 8186.436
+                    point.position.y = 23243.514
+                    point.position.z = -1574.911
+                elif similar_position(point.position, 7065, 22986, -310):
+                    point.position.x = 8029.597
+                    point.position.y = 23747.464
+                    point.position.z = 329.514
+                elif similar_position(point.position, 1840, 21208, -136):
+                    point.position.x = 3261.442
+                    point.position.y = 21601.882
+                    point.position.z = -205.137
+                # The enemy point at the very center of the newly added cannon needs to be centered,
+                # and small enough to make sure karts want to get to that point.
+                elif similar_position(point.position, -196, 28815, -30):
+                    point.scale = 1300
+                # Some tweaks in the last jump, as karts could fall easily (without any external
+                # intervention).
+                elif similar_position(point.position, 4960, 23793, 11950):
+                    point.position.z = 11780.2
+                elif similar_position(point.position, -20, 23861, 11523):
+                    point.position.x = -699.826
+
+            # From start to the newly added boost pad in the steep slope.
+            set_drift(-13600, 22179, -10077, 2, 10, 70)
+            set_drift(16470, 17000, 5858, 2, 10, 80)
+            move_swerve(13900, 17000, 8209, 15279, 17000, 7449)
+            move_swerve(12607, 17022, 8059, 16470, 17000, 5858)
+            move_swerve(-5012, 13303, -143, 2097, 13150, 4129)
+            move_swerve(-1022, 13271, -4834, 5453, 13524, 906)
+
+            # First snail ascent.
+            move_swerve(-6558, 22059, -1301, -3707, 21497, -718)
+            move_drift(-7918, 21914, 1915, -4653, 20815, 1916)
+            set_swerve(-4653, 20815, 1916, -1)
+            move_drift(-7635, 22106, -83, -3642, 21235, 565)
+            swap_drift(-6558, 22059, -1301, -3707, 21497, -718)
+            set_drift(-6558, 22059, -1301, 1, 50, 100)
+
+            # Between first and second snail ascent.
+            set_swerve(-6926, 21196, 5418, -1)
+            set_swerve(-5717, 20673, 7054, -1)
+            move_swerve(211, 21232, 8619, -2085, 20594, 8688)
+            del_enemy_point(3034, 21571, -7624)
+            del_enemy_point(4688, 21692, -6568)
+            del_enemy_point(6158, 22002, -5144)
+            del_enemy_point(5561, 22783, 827)
+            del_enemy_point(3815, 21861, 184)
+            set_swerve(8186, 23243, -1574, 0)
+            set_swerve(8029, 23747, 329, 3)
+            set_swerve(3261, 21601, -205, -1)
+
+            # Second snail ascent.
+            del_enemy_point(-1604, 21831, 1011)
+            move_drift(-4345, 27449, -1636, -5072, 23678, 1409)
+            move_drift(-2488, 28000, -943, -3350, 22925, 1562)
+            del_enemy_point(-2488, 28000, -943)
+            set_drift(-5884, 26304, 1215, 2, 20, 150)
+            set_drift(-6327, 26602, 111, 0, 0, 0)
+            set_drift(-5913, 26999, -1388, 0, 0, 0)
+            set_drift(-196, 28815, -30, 0, 0, 0)
+
+            # From landing area to finish line.
+            move_swerve(23890, 25365, 13337, 23368, 25365, 8209)
+            move_swerve(-13190, 22179, 8870, -10840, 22179, 11240)
 
         elif Course.DinoDinoJungle:
             # In Dino Dino Jungle, a respawn point needs to be moved after the bridge now. This is
@@ -4230,10 +4843,14 @@ class GenEditor(QtWidgets.QMainWindow):
                 if similar_position(respawn_point.position, -23680, 12180, -18919):
                     next_enemy_point = 26
                     respawn_point.unk1 = next_enemy_point
-            # Cosmetic reorientation of a respawn point.
             for respawn_point in self.level_file.respawnpoints:
+                # Respawn point needs to be tweaked to avoid launching respawned karts to the water.
                 if similar_position(respawn_point.position, -18294, 8952, 12319):
-                    respawn_point.rotation.rotate_around_z(0.3)
+                    respawn_point.position.x = -16713.382
+                    respawn_point.position.y = 8698.044
+                    respawn_point.position.z = 12171.751
+                    respawn_point.rotation.rotate_around_z(0.75)
+                    respawn_point.unk1 = 54  # Next enemy point.
             # The enemy point routes before the entrance to the bridge need to be shrinked, to guide
             # the AI karts better through the bridge.
             for point in self.level_file.enemypointgroups.points():
@@ -4252,6 +4869,9 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.scale = 500
                 elif similar_position(point.position, -569, 11340, -6093):
                     point.scale = 600
+                elif similar_position(point.position, -4605, 12262, -11007):
+                    point.position.x = -4309.077
+                    point.position.z = -11452.212
             # Item boxes at the entrace of the bridge need to be moved up the hill.
             for obj in self.level_file.objects.objects:
                 if similar_position(obj.position, 5177, 11014, 5050):
@@ -4270,85 +4890,51 @@ class GenEditor(QtWidgets.QMainWindow):
                     obj.position.x += 640
                     obj.position.y += 175
                     obj.position.z += 1148
-            # Enemy points in the long bridge need to be adjusted as well, to guide the AI karts
-            # better.
             for point in self.level_file.enemypointgroups.points():
-                if similar_position(point.position, -28043, 12069, -14909):
-                    point.position.x = -27124.985
-                    point.position.z = -16269.986
-                    point.scale = 1000
-                elif similar_position(point.position, -29344, 12069, -13709):
-                    point.position.x = -28968.548
-                    point.position.z = -14789.323
-                    point.scale = 1000
-                elif similar_position(point.position, -29532, 12069, -11003):
-                    point.position.x = -29679.755
-                    point.position.z = -13350.394
-                elif similar_position(point.position, -28176, 12069, -9351):
-                    point.position.x = -29488.43
-                    point.position.z = -11495.028
-                    point.scale = 700
-                elif similar_position(point.position, -27683, 12069, -7870):
-                    point.position.x = -28430.42
-                    point.position.z = -9968.252
-                    point.scale = 800
+                if similar_position(point.position, -12633, 12504, -22921):
+                    point.position.x = -12530.356
+                    point.position.z = -23180.379
+                elif similar_position(point.position, -20516, 12354, -22366):
+                    point.position.x = -20685.577
+                    point.position.z = -22661.964
+                elif similar_position(point.position, -22043, 12226, -20509):
+                    point.position.x = -22628.98
+                    point.position.z = -20704.648
+                # Point at the end of the cave, before the bridges, needs to be tweaked or else
+                # karts try to go directly between the main bridge and the items-only bridge.
                 elif similar_position(point.position, -27528, 12069, -5512):
                     point.position.x = -27498.599
                     point.position.z = -8129.775
                     point.scale = 700
-                elif similar_position(point.position, -26942, 11992, -3103):
-                    point.position.x = -26815.991
-                    point.position.y = 11968.697
-                    point.position.z = -2817.384
-                    point.scale = 400
-                elif similar_position(point.position, -25824, 11626, 1291):
-                    point.position.x = -25904.194
-                    point.position.y = 11642.031
-                    point.position.z = 1128.298
-                    point.scale = 700
-                elif similar_position(point.position, -24980, 11007, 5638):
-                    point.position.x = -24936.582
-                    point.position.y = 10909.169
-                    point.position.z = 6210.55
-                    point.scale = 700
-                elif similar_position(point.position, -24400, 10341, 8258):
-                    point.position.x = -24400.23
-                    point.position.y = 10311.652
-                    point.position.z = 8258.797
-                    point.scale = 800
-                elif similar_position(point.position, -23092, 9692, 10347):
-                    point.position.x = -22828.33
-                    point.position.y = 9624.745
-                    point.position.z = 10479.934
-                    point.scale = 800
-                elif similar_position(point.position, -19378, 9115, 12218):
-                    point.position.x = -20170.814
-                    point.position.y = 9143.745
-                    point.position.z = 12174.146
-                    point.scale = 900
+                # Enemy points in the long bridge need to be adjusted as well, to guide the AI karts
+                # better.
                 elif similar_position(point.position, -17470, 8866, 12261):
-                    point.position.x = -17470.271
+                    point.position.x = -17435.271
                     point.position.y = 8866.754
-                    point.position.z = 12261.225
-                    point.scale = 700
-                elif similar_position(point.position, -15751, 8561, 11559):
-                    point.position.x = -15751.235
-                    point.position.y = 8561.806
-                    point.position.z = 11559.073
+                    point.position.z = 11946.225
                     point.scale = 800
-                if similar_position(point.position, -14698, 8251, 9954):
-                    point.position.x = -14698.151
+                elif similar_position(point.position, -15751, 8561, 11559):
+                    point.position.x = -15969.435
+                    point.position.y = 8561.806
+                    point.position.z = 11114.473
+                    point.scale = 800
+                elif similar_position(point.position, -14698, 8251, 9954):
+                    point.position.x = -15042.951
                     point.position.y = 8251.187
-                    point.position.z = 9954.363
+                    point.position.z = 9609.563
                     point.scale = 900
-            # Space out one of the enemy points in the secondary bridge (by the long bridge), to
-            # avoid the issue where karts may end up following an items-only enemy point nearby.
-            for point in self.level_file.enemypointgroups.points():
-                if similar_position(point.position, -28089, 11961, -3098):
+                # Space out one of the enemy points in the secondary bridge (by the long bridge), to
+                # avoid the issue where karts may end up following an items-only enemy point nearby.
+                elif similar_position(point.position, -28089, 11961, -3098):
                     point.position.x = -28452.639
                     point.position.y = 11925.776
                     point.position.z = -2411.521
                     point.scale = 700
+                # Enemy point after the dino's legs can be tweaked for a better entrance.
+                elif similar_position(point.position, 6118, 8427, -7632):
+                    point.position.x = 7023.245
+                    point.position.z = -8284.58
+
             # Last item boxes are not too useful in the last lap. They will be moved a few curves
             # ahead.
             for obj in self.level_file.objects.objects:
@@ -4381,7 +4967,43 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.position.y = 13379.541
                     point.position.z = -13383.43
 
+            # Before cave.
+            move_drift(7768, 10942, 11893, 11082, 10465, 11875)
+            move_swerve(7768, 10942, 11893, 11082, 10465, 11875)
+            move_swerve(7352, 10900, 7767, 7600, 10927, 9588)
+
+            # Cave.
+            move_swerve(-22628, 12226, -20704, -15575, 12736, -24508)
+            set_swerve(-29344, 12069, -13709, -2)
+            set_swerve(-29532, 12069, -11003, -3)
+            set_swerve(-28176, 12069, -9351, 1)
+            del_enemy_point(-27683, 12069, -7870)
+
+            # Bridges.
+            set_swerve(-24400, 10341, 8258, -2)
+            set_swerve(-23092, 9692, 10347, -2)
+            set_swerve(-19378, 9115, 12218, -3)
+            set_swerve(-17435, 8866, 11946, -3)
+
+            # After dino legs.
+            set_swerve(-2440, 8138, 3184, 0)
+            set_swerve(340, 8140, 2737, -1)
+            move_swerve(8232, 8427, -12960, 7957, 8422, -9905)
+            move_drift(11884, 8427, -17685, 6694, 8427, -15462)
+
         elif Course.BowsersCastle:
+            # Remove enemy point group in the old cliff shortcut. Red shells cannot follow it.
+            for point in list(self.level_file.enemypointgroups.groups[2].points):
+                # Use helper function to ensure next enemy point in respawn points are shifted.
+                del_enemy_point(point.position.x, point.position.y, point.position.z)
+            del self.level_file.enemypointgroups.groups[2]
+            # Reassign group IDs.
+            self.level_file.enemypointgroups._group_ids = {}
+            for i, group in enumerate(self.level_file.enemypointgroups.groups):
+                group.id = i
+                self.level_file.enemypointgroups._group_ids[i] = group
+                for point in group.points:
+                    point.group = i
             # In Bowser's Castle, the last respawn point needs to be tweaked to prevent a crash when
             # karts touch the associated dead zone (`0x0F00`). If we don't move it, then its
             # preceding checkpoint would be the last checkpoint, which causes a crash in the game.
@@ -4410,46 +5032,80 @@ class GenEditor(QtWidgets.QMainWindow):
                     respawn_point.position.x = -26502.2
                     respawn_point.position.z = 20968.8
                     respawn_point.rotation.rotate_around_z(0.8)
-                    respawn_point.unk1 = 33  # Next enemy point.
-            # Another respawn point too close to a cliff.
+                    respawn_point.unk1 = 23  # Next enemy point.
+            # Another respawn point too close to a cliff near the metallic platform with a hole.
             for respawn_point in self.level_file.respawnpoints:
                 if similar_position(respawn_point.position, -11688, 5856, -12973):
                     respawn_point.position.x = -11723.361
-                    respawn_point.position.z = -10801.091
-                    respawn_point.unk1 = 87
-            # A respawn point that needs to be rotated, as it's facing a wall.
+                    respawn_point.position.y = 6028.209
+                    respawn_point.position.z = -18417.947
+                    respawn_point.unk1 = 93  # Next enemy point.
+                    respawn_point.unk3 = 52  # Preceding checkpoint.
+            # A respawn point that needs to be rotated as it's facing a wall, and aligned with the
+            # carpet.
             for respawn_point in self.level_file.respawnpoints:
                 if similar_position(respawn_point.position, -3153, 9010, 15136):
                     respawn_point.position.x = -3093.5
-                    respawn_point.position.z = 15636.799
+                    respawn_point.position.z = 15757.868
                     respawn_point.rotation.rotate_around_z(-pi / 2)
             # A couple of respawn points need to be rotated slightly, as they are rather facing to
             # the lava again.
             for respawn_point in self.level_file.respawnpoints:
                 if similar_position(respawn_point.position, -30462, 8116, 17398):
-                    respawn_point.position.x = -31302.455
-                    respawn_point.position.z = 17083.891
+                    respawn_point.position.x = -30606.455
+                    respawn_point.position.y = 8417.531
+                    respawn_point.position.z = 16155.891
                     respawn_point.rotation.rotate_around_z(-0.8)
+                    respawn_point.unk1 = 17  # Next enemy point.
                 elif similar_position(respawn_point.position, -30371, 8132, 17941):
-                    respawn_point.position.x = -31248.616
-                    respawn_point.position.z = 17777.162
-                    respawn_point.rotation.rotate_around_z(-0.8)
+                    respawn_point.position.x = -27975.016
+                    respawn_point.position.y = 8581.893
+                    respawn_point.position.z = 15080.763
+                    respawn_point.rotation.rotate_around_z(-2.4)
+                    respawn_point.unk1 = 18  # Next enemy point.
             # Some enemy points need to be slightly replaced, or else the AI karts can be too dumb
             # against walls.
             for point in self.level_file.enemypointgroups.points():
-                if similar_position(point.position, -11704, 6378, -3558):
-                    point.scale = 1000
-                elif similar_position(point.position, -11690, 6350, -6038):
-                    point.scale = 800
-                elif similar_position(point.position, -11711, 6213, -9293):
-                    point.scale = 700
+                # First curve after start line.
+                if similar_position(point.position, 3535, 8100, 19999):
+                    point.position.x = 3785.565
+                    point.position.z = 19666.548
+                elif similar_position(point.position, 3188, 8100, 22929):
+                    point.position.x = 3812.363
+                    point.position.z = 22513.338
+                elif similar_position(point.position, 1997, 8100, 24023):
+                    point.position.x = 1537.193
+                    point.position.z = 24003.422
+                elif similar_position(point.position, -570, 8141, 24697):
+                    point.position.x = -590.0
+                    point.position.z = 24497.0
+                # In the castle before snail descent.
+                elif similar_position(point.position, -12131, 9010, 4542):
+                    point.position.x = -12086.745
+                    point.position.z = 2593.915
+                elif similar_position(point.position, -11369, 9010, 4548):
+                    point.position.x = -11616.287
+                    point.position.z = 2593.915
+                elif similar_position(point.position, -11844, 9000, 2623):
+                    point.position.x = -11844.703
+                    point.position.z = 1023.955
+                # After the snail descent.
+                elif similar_position(point.position, -11712, 5850, -11443):
+                    point.position.z = -9678.962
+                elif similar_position(point.position, -12694, 5850, -13424):
+                    point.position.x = -12818.199
+                    point.position.z = -13424.899
+                elif similar_position(point.position, -10821, 5850, -13424):
+                    point.position.x = -10425.099
+                    point.position.z = -13424.899
+                # Before the two corridors.
+                elif similar_position(point.position, 2229, 6937, -25547):
+                    point.position.x = 1947.2
+                    point.position.z = -26168.349
                 elif similar_position(point.position, 2265, 6937, -17314):
                     point.position.x = 2485.527
                     point.position.z = -19180.256
                     point.scale = 700
-                elif similar_position(point.position, 2229, 6937, -25547):
-                    point.position.x = 1947.2
-                    point.position.z = -26168.349
                 elif similar_position(point.position, 3168, 6937, -24698):
                     point.position.x = 3186.967
                     point.position.z = -25770.094
@@ -4481,9 +5137,15 @@ class GenEditor(QtWidgets.QMainWindow):
                 elif similar_position(point.position, 3587, 6757, 1770):
                     point.position.z = 2983.638
                     point.scale = 500
+                elif similar_position(point.position, -26565, 8765, 18414):
+                    point.position.x = -26245.17
+                    point.position.z = 19054.062
+                elif similar_position(point.position, -26336, 8799, 19723):
+                    point.position.x = -25607.068
+                    point.position.z = 20999.697
                 elif similar_position(point.position, -24785, 8829, 21205):
-                    point.position.x = -25600.074
-                    point.position.z = 21831.697
+                    point.position.x = -24306.474
+                    point.position.z = 21910.097
                 elif similar_position(point.position, -21764, 8829, 21243):
                     point.position.x = -22101.443
                     point.position.z = 22001.798
@@ -4492,14 +5154,8 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.position.x = -19105.667
                     point.position.z = 21906.953
                 elif similar_position(point.position, -24457, 8829, 22795):
-                    point.position.x = -25248.8
-                    point.position.z = 22141.699
-            # Enemy point at the stretched segment is adjusted.
-            for point in self.level_file.enemypointgroups.points():
-                if similar_position(point.position, -11690, 6350, -6038):
-                    point.position.x = -11690.782
-                    point.position.y = 6817.032
-                    point.position.z = -7371.771
+                    point.position.x = -24072.8
+                    point.position.z = 22455.299
             # The old area (type 5) that was present in the last jump needs to be removed as there
             # is no jump anymore. (At this point, it is not fully known what these area types mean,
             # but they always appear in jumps.)
@@ -4507,6 +5163,50 @@ class GenEditor(QtWidgets.QMainWindow):
                 if similar_position(area.position, -7263, 6057, 25103):
                     self.level_file.areas.areas.remove(area)
                     break
+
+            # From start to the stairs.
+            set_swerve(3785, 8100, 19666, 0)
+            set_swerve(3812, 8100, 22513, 3)
+            set_swerve(1537, 8100, 24003, 1)
+            del_enemy_point(-24777, 8739, 24972)
+            set_swerve(-27622, 8331, 24955, 1)
+            del_enemy_point(-31052, 8108, 19852)
+            set_swerve(-26717, 8730, 17217, 0)
+            set_swerve(-26245, 8765, 19054, -1)
+
+            # Between stairs and before the snail descent.
+            move_swerve(-7561, 11700, 14330, -4987, 11700, 16750)
+            set_drift(-7737, 11700, 10357, 0, 0, 0)
+            set_drift(-4007, 10291, 7524, 0, 0, 0)
+            set_drift(-8065, 10822, 6015, 2, 10, 130)
+            del_enemy_point(-7899, 11313, 8126)
+            set_swerve(-8065, 10822, 6015, 0)
+            set_swerve(-4665, 10800, 4955, 0)
+            del_enemy_point(-4044, 9900, 9208)
+            del_enemy_point(-3313, 9900, 10468)
+            set_swerve(-11680, 9000, 12895, 0)
+            set_swerve(-11844, 9000, 1023, 0)
+
+            # Snail descent.
+            swap_drift(-9686, 8153, -5870, -9278, 6925, -145)
+            swap_drift(-9278, 6925, -145, -11277, 8337, -4763)
+            swap_drift(-7983, 7974, -5904, -7633, 7143, -310)
+            swap_drift(-6483, 7764, -4905, -6326, 7352, -1444)
+            set_swerve(-11071, 6659, -1123, 0)
+            del_enemy_point(-11704, 6378, -3558)
+            del_enemy_point(-11690, 6350, -6038)
+            del_enemy_point(-11711, 6213, -9293)
+
+            # After snail decent before two corridors.
+            set_swerve(-11712, 5850, -9678, 0)
+            move_swerve(-12341, 6273, -19609, -12818, 5850, -13424)
+            move_swerve(-10988, 6273, -19606, -10425, 5850, -13424)
+            set_swerve(-11359, 6930, -24234, 2)
+            set_swerve(3644, 6937, -23567, 0)
+
+            # After the two corridors.
+            del_enemy_point(3587, 6757, 2983)
+            del_enemy_point(3575, 7002, 5157)
 
         elif Course.RainbowRoad:
             # In Rainbow Road, the cannon needs to be replaced, and its orientation flipped.
@@ -4573,11 +5273,18 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.position.y = 54395.957
                 elif similar_position(point.position, -12407, 58319, -33607):
                     point.position.y = 60546.483
+            # Enemy point before the cannon shot needs to be moved down to the ground.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, 5738, 68291, 3598):
+                    point.position.y = 64415.367
+                elif similar_position(point.position, 8162, 65583, 7066):
+                    point.position.y = 65074.176
             # Some curves are too sharp for the AI in reverse; they need to be smoothened.
             for point in self.level_file.enemypointgroups.points():
+                # After landing.
                 if similar_position(point.position, 19875, 4392, 24030):
-                    point.position.x = 20411.309
-                    point.position.z = 23816.118
+                    point.position.x = 19871.309
+                    point.position.z = 22796.118
                     point.scale = 1600
                 elif similar_position(point.position, 20176, 4409, 26006):
                     point.position.x = 20444.041
@@ -4587,38 +5294,39 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.position.x = 18957.739
                     point.position.z = 27035.482
                     point.scale = 1200
+                # Tiny snake turns.
                 elif similar_position(point.position, 16228, 4806, 27090):
                     point.position.x = 16228.193
                     point.position.z = 27090.387
-                    point.scale = 1000
+                    point.scale = 1100
                 elif similar_position(point.position, 14143, 5130, 27341):
                     point.position.x = 13981.014
                     point.position.z = 27509.902
-                    point.scale = 600
+                    point.scale = 1100
                 elif similar_position(point.position, 12035, 5578, 28432):
                     point.position.x = 11688.665
                     point.position.z = 28664.941
-                    point.scale = 600
+                    point.scale = 1100
                 elif similar_position(point.position, 9888, 5978, 28549):
                     point.position.x = 9728.025
                     point.position.z = 28602.795
-                    point.scale = 700
+                    point.scale = 1100
                 elif similar_position(point.position, 7648, 6349, 27478):
                     point.position.x = 7469.984
                     point.position.z = 27620.968
-                    point.scale = 1000
+                    point.scale = 1100
                 elif similar_position(point.position, 5469, 7125, 27435):
                     point.position.x = 5369.341
                     point.position.z = 27664.288
-                    point.scale = 1000
+                    point.scale = 1100
                 elif similar_position(point.position, 3287, 8390, 28683):
                     point.position.x = 3081.368
                     point.position.z = 28699.229
-                    point.scale = 700
+                    point.scale = 1100
                 elif similar_position(point.position, 974, 9862, 28837):
                     point.position.x = 759.938
                     point.position.z = 28784.281
-                    point.scale = 1000
+                    point.scale = 1100
                 elif similar_position(point.position, -1650, 11405, 27634):
                     point.position.x = -2025.317
                     point.position.z = 27634.963
@@ -4629,15 +5337,16 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.scale = 1500
             for respawn_point in self.level_file.respawnpoints:
                 if similar_position(respawn_point.position, 11856, 5668, 28795):
-                    respawn_point.position.x = 12975.166
-                    respawn_point.position.z = 28050.46
-                    respawn_point.unk1 = 33
+                    respawn_point.position.x = 6633.166
+                    respawn_point.position.y = 6655.073
+                    respawn_point.position.z = 26916.46
+                    respawn_point.unk1 = 36  # Next enemy point.
             # AI karts need to be guided away from the fences in the uphill, or else they could get
             # stuck.
             for point in self.level_file.enemypointgroups.points():
                 if similar_position(point.position, 2367, 34102, -9713):
-                    point.position.x = 2689.621
-                    point.position.z = -9825.396
+                    point.position.x = 2412.421
+                    point.position.z = -9983.796
                 elif similar_position(point.position, 2555, 34864, -11693):
                     point.position.x = 2905.119
                     point.position.z = -11903.349
@@ -4657,12 +5366,37 @@ class GenEditor(QtWidgets.QMainWindow):
                 elif similar_position(point.position, -1306, 47478, -24337):
                     point.position.x = -1073.024
                     point.position.z = -24395.509
-            # Rather cosmetic changes to avoid being spawned against a wall or cliff.
+            # One enemy point in the larger snail descent is too close to the edge.
+            for point in self.level_file.enemypointgroups.points():
+                if similar_position(point.position, -24114, 14014, 23607):
+                    point.position.x = -24346.739
+                    point.position.y = 14134.0
+                    point.position.z = 23607.426
+            # Some cosmetic tweaks in respawn points.
+            for respawn_point in self.level_file.respawnpoints:
+                if similar_position(respawn_point.position, -17823, 63268, -28608):
+                    respawn_point.rotation.rotate_around_z(-0.10)
+            # Some respawn points need to be moved to the other end of the curve, or else karts may
+            # end up following the old, wrong enemy point, or even fall again.
             for respawn_point in self.level_file.respawnpoints:
                 if similar_position(respawn_point.position, 20460, 4392, 24193):
-                    respawn_point.rotation.rotate_around_z(-0.7)
+                    respawn_point.position.x = 19596.764
+                    respawn_point.position.y = 4409.465
+                    respawn_point.position.z = 27044.962
+                    respawn_point.rotation.rotate_around_z(-2.15)
+                    respawn_point.unk1 = 30  # Next enemy point.
                 elif similar_position(respawn_point.position, 2584, 34419, -10326):
-                    respawn_point.rotation.rotate_around_z(0.5)
+                    respawn_point.position.x = 540.5
+                    respawn_point.position.y = 34504.793
+                    respawn_point.position.z = -12354.034
+                    respawn_point.rotation.rotate_around_z(pi)
+                    respawn_point.unk1 = 78  # Next enemy point.
+                elif similar_position(respawn_point.position, -2945, 35773, -7203):
+                    respawn_point.position.x = -6040.12
+                    respawn_point.position.y = 37660.949
+                    respawn_point.position.z = -8738.438
+                    respawn_point.rotation.rotate_around_z(pi)
+                    respawn_point.unk1 = 83  # Next enemy point.
             # Add an extra respawn point for the last jump's boost ramp.
             for respawn_point in self.level_file.respawnpoints:
                 if respawn_point.respawn_id == 1:
@@ -4679,19 +5413,72 @@ class GenEditor(QtWidgets.QMainWindow):
             # Also fix the preceding checkpoint index of the respawn points.
             self.level_file.respawnpoints[0].unk3 = 16
             self.level_file.respawnpoints[1].unk3 = 59
-            self.level_file.respawnpoints[2].unk3 = 50
-            self.level_file.respawnpoints[3].unk3 = 43
+            self.level_file.respawnpoints[2].unk3 = 55
+            self.level_file.respawnpoints[3].unk3 = 48
             self.level_file.respawnpoints[4].unk3 = 39
             self.level_file.respawnpoints[5].unk3 = 36
             self.level_file.respawnpoints[6].unk3 = 33
             self.level_file.respawnpoints[7].unk3 = 29
             self.level_file.respawnpoints[8].unk3 = 25
             self.level_file.respawnpoints[9].unk3 = 23
-            self.level_file.respawnpoints[10].unk3 = 20
-            self.level_file.respawnpoints[11].unk3 = 18
+            self.level_file.respawnpoints[10].unk3 = 21
+            self.level_file.respawnpoints[11].unk3 = 19
             self.level_file.respawnpoints[12].unk3 = 13
             self.level_file.respawnpoints[13].unk3 = 10
             self.level_file.respawnpoints[14].unk3 = 61
+
+            # First snail ascent.
+            swap_drift(-19171, 63088, -29747, -16667, 58207, -36896)
+            swap_drift(-20697, 62870, -32227, -18258, 58284, -37469)
+            swap_drift(-21170, 62504, -33956, -19455, 58534, -37250)
+            swap_drift(-21095, 62116, -35476, -20206, 58778, -36335)
+            swap_drift(-20561, 61769, -36748, -20135, 59055, -35154)
+            swap_drift(-19128, 59466, -34423, -19507, 61421, -37373)
+            swap_drift(-17950, 59825, -34527, -18299, 60988, -37374)
+            swap_drift(-17141, 60208, -35493, -17341, 60532, -36670)
+            set_drift(-21095, 62116, -35476, 0, 0, 0)
+            set_drift(-21170, 62504, -33956, 0, 0, 0)
+            set_drift(-20697, 62870, -32227, 0, 0, 0)
+            set_drift(-19171, 63088, -29747, 0, 0, 0)
+            set_drift(-20561, 61769, -36748, 1, 50, 130)
+            set_swerve(-20697, 62870, -32227, 0)
+            set_swerve(-18299, 60988, -37374, 0)
+            set_swerve(-20135, 59055, -35154, 0)
+            set_swerve(-18258, 58284, -37469, -1)
+            set_swerve(-17950, 59825, -34527, -1)
+            set_swerve(-20561, 61769, -36748, -1)
+
+            # After landing from cannon.
+            set_drift(18957, 4532, 27035, 0, 0, 0)    # Move...
+            set_drift(19871, 4392, 22796, 2, 10, 60)  # ...with tweaks.
+            swap_swerve(19871, 4392, 22796, 18957, 4532, 27035)
+
+            # Tiny snake turns.
+            set_swerve(16228, 4806, 27090, -1)
+            set_swerve(13981, 5130, 27509, 0)
+            set_swerve(11688, 5578, 28664, 3)
+            set_swerve(9728, 5978, 28602, 0)
+            set_swerve(7469, 6349, 27620, -2)
+            set_swerve(5369, 7125, 27664, 0)
+            set_swerve(3081, 8390, 28699, 2)
+            set_swerve(759, 9862, 28784, 0)
+            set_swerve(-2025, 11405, 27634, -1)
+            set_swerve(-4391, 13196, 27072, 0)
+
+            # Spiral descent.
+            set_swerve(-23573, 18468, 21014, 0)
+            set_swerve(-15737, 16002, 25497, 0)
+            set_swerve(-23891, 14328, 21429, 0)
+
+            # Twin snake turns.
+            set_drift(261, 34554, -12071, 0, 0, 0)
+            set_swerve(2905, 34864, -11903, -2)
+            set_swerve(1668, 34893, -12827, -3)
+            set_swerve(261, 34554, -12071, 0)
+            set_drift(-4835, 38201, -10057, 0, 0, 0)
+            set_swerve(-4835, 38201, -10057, 0)
+            set_swerve(-5676, 36897, -6596, 3)
+            move_swerve(-1073, 47478, -24395, 191, 45391, -21934)
 
 
 def find_file(rarc_folder, ending):

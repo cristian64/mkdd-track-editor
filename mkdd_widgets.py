@@ -1308,6 +1308,13 @@ class BolMapViewer(QtOpenGLWidgets.QOpenGLWidget):
                                                             'minimap')
             #glDisable(GL_TEXTURE_2D)
 
+        if hasattr(self, 'last_clipboard_positions'):
+            glLineWidth(3)
+            for position in self.last_clipboard_positions:
+                glColor3f(1.0, 0.1, 1.0)
+                self.models.draw_cylinder(Vector3(*position), 1000, 1000)
+            glLineWidth(1)
+
         glColor3f(0.0, 0.0, 0.0)
         glDisable(GL_TEXTURE_2D)
         glColor4f(0.0, 1.0, 0.0, 1.0)

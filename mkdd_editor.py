@@ -827,6 +827,46 @@ class GenEditor(QtWidgets.QMainWindow):
         copy_position_action.setShortcut("Ctrl+Shift+P")
         copy_position_action.triggered.connect(copy_position)
 
+        def clipboard_changed(mode):
+            if mode != 0:
+                return
+
+            text = QtWidgets.QApplication.clipboard().text()
+
+            self.level_view.last_clipboard_positions = []
+
+            text = text.replace(',', ' ')
+            text = text.replace('.position', ' ')
+            text = text.replace('.x', ' ')
+            text = text.replace('.y', ' ')
+            text = text.replace('.z', ' ')
+            text = text.replace('similar_position', ' ')
+            text = text.replace('respawn_point', ' ')
+            text = text.replace('point', ' ')
+            text = text.replace('area', ' ')
+            text = text.replace('elif', ' ')
+            text = text.replace('if', ' ')
+            text = text.replace(':', ' ')
+            text = text.replace('(', ' ')
+            text = text.replace(')', ' ')
+            text = text.replace('=', ' ')
+
+            words = tuple(w.strip() for w in text.split() if w)
+
+            if len(words) % 3 == 0:
+                for i in range(0, len(words), 3):
+                    try:
+                        x = float(words[i])
+                        y = float(words[i + 1])
+                        z = float(words[i + 2])
+                        self.level_view.last_clipboard_positions.append((x, y, z))
+                    except ValueError:
+                        pass
+
+            self.update_3d()
+
+        QtWidgets.QApplication.clipboard().changed.connect(clipboard_changed)
+
     def action_hook_into_dolphion(self):
         error = self.dolphin.initialize()
         if error != "":

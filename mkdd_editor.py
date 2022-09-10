@@ -3485,6 +3485,14 @@ class GenEditor(QtWidgets.QMainWindow):
             for point in self.level_file.respawnpoints:
                 if similar_position(point.position, 13394, 4863, 26497):
                     point.rotation.rotate_around_z(pi)
+
+                    # Also, since the original pipe's entry is now the exit, the associated respawn
+                    # point needs to be put at the teleport's new exit.
+                    point.position.x = 13500
+                    point.position.y = 2160
+                    point.position.z = 26578
+                    point.unk3 = 17  # Previous checkpoint.
+
                 elif similar_position(point.position, 13404, 1985, 26490):
                     point.rotation.rotate_around_z(pi)
             # And a few others that need to be slightly tweaked.
@@ -3494,10 +3502,12 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.position.z = -25683.032
                 elif similar_position(point.position, -4813, 810, -16010):
                     point.rotation.rotate_around_z(-0.5)
+                elif similar_position(point.position, 3348, 810, -3777):
+                    point.rotation.rotate_around_z(-0.2)
                 elif similar_position(point.position, 665, 810, 14065):
                     point.rotation.rotate_around_z(-0.3)
                 elif similar_position(point.position, -8297, 968, 20237):
-                    point.rotation.rotate_around_z(0.9)
+                    point.rotation.rotate_around_z(1.3)
                 elif similar_position(point.position, 2215, 1990, 26503):
                     point.rotation.rotate_around_z(0.4)
                 elif similar_position(point.position, 8758, 2362, 23014):
@@ -3531,6 +3541,40 @@ class GenEditor(QtWidgets.QMainWindow):
                 elif similar_position(point.position, 9168, 2583, 21531):
                     point.position.x = 9011.303
                     point.position.z = 21269.924
+
+            for obj in list(self.level_file.objects.objects):
+                # Item box in the now pipe exit can be removed. The player needs to target the items
+                # in the road instead.
+                if similar_position(obj.position, 12662, 5361, 26497):
+                    self.level_file.objects.objects.remove(obj)
+
+            # Add areas for ceiling and shadow at the entrace of the new pipe.
+            new_areas = []
+            for area in self.level_file.areas.areas:
+                if similar_position(area.position, 13566, 1839, 26568):  # Existing area type 0.
+                    # The original shadow area needs to be tweaked a little, to cover the karts that
+                    # may have been hit by a blue shell, as the pipe is more more transitable.
+                    area.position.y = 2122.313
+                    area.scale.y = 12
+
+                    # Shadow area in the new pipe.
+                    new_area = clone_map_area(area)
+                    new_area.position.x = -9705.0
+                    new_area.position.y = 591.516
+                    new_area.position.z = 23085
+                    new_area.scale.x = 11
+                    new_area.scale.y = 8
+                    new_area.scale.z = 15
+                    new_area.rotation = new_area.rotation.default()
+                    new_area.rotation.rotate_around_z(pi / 2)
+                    new_areas.append(new_area)
+
+                    # Area type 2 (ceiling).
+                    new_area = clone_map_area(new_area)
+                    new_area.area_type = 2
+                    new_area.position.z = 22898.171  # To cover the border a bit better.
+                    new_areas.append(new_area)
+            self.level_file.areas.areas.extend(new_areas)
 
             move_drift(-431, 714, -22500, 8956, 1174, -22387)
             set_drift(-9000, 776, -15100, 1, 60, 150)

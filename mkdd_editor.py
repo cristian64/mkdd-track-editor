@@ -4176,6 +4176,7 @@ class GenEditor(QtWidgets.QMainWindow):
             for area in self.level_file.areas.areas:
                 if similar_position(area.position, 2164, 12350, -2323):  # Existing area type 0.
                     new_area = clone_map_area(area)
+                    new_area.check_flag = 0  # Non-spherical
                     new_area.position.x = 3027
                     new_area.position.y = 12400 - 700
                     new_area.position.z = -16100
@@ -4183,10 +4184,11 @@ class GenEditor(QtWidgets.QMainWindow):
                     new_area.scale.y = 14.0
                     new_area.scale.z = 7.0  # The depth is 700.
                     new_area.rotation = new_area.rotation.default()
-                    new_area.rotation.rotate_around_z(0.33)
+                    new_area.rotation.rotate_around_z(0.262)
                     new_areas.append(new_area)
 
                     new_area = clone_map_area(area)
+                    new_area.check_flag = 0  # Non-spherical
                     new_area.position.x = 2100
                     new_area.position.y = 16000 - 700
                     new_area.position.z = -10400
@@ -4204,6 +4206,7 @@ class GenEditor(QtWidgets.QMainWindow):
             for area in self.level_file.areas.areas:
                 if similar_position(area.position, 7312, 11549, 10576):  # Existing area type 2.
                     new_area = clone_map_area(area)
+                    new_area.check_flag = 0  # Non-spherical
                     inner_cylinder_factor = 0.75
                     new_area.position.x = 3027
                     new_area.position.y = 12400 - 700 * inner_cylinder_factor
@@ -4212,7 +4215,7 @@ class GenEditor(QtWidgets.QMainWindow):
                     new_area.scale.y = 14.0 * inner_cylinder_factor
                     new_area.scale.z = 7.0  # The depth is 700.
                     new_area.rotation = new_area.rotation.default()
-                    new_area.rotation.rotate_around_z(0.33)
+                    new_area.rotation.rotate_around_z(0.262)
                     new_areas.append(new_area)
             self.level_file.areas.areas.extend(new_areas)
 

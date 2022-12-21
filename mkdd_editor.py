@@ -3768,11 +3768,14 @@ class GenEditor(QtWidgets.QMainWindow):
                     self.level_file.objects.objects.append(new_pool)
 
                     # A splash object is created as well. Without this, the splash effect was not
-                    # working, which is interesting, considering that the other swiming pool
-                    # (0x0F01_0x000001FF) did not require this splash object for some reason. The
-                    # index of this splash object (1) matches the last byte in the material label of
-                    # the new pool.
+                    # working, which is interesting, considering that the other swimming pool
+                    # (0x0F01_0x01_0x000001FF) did not require this splash object for some reason,
+                    # as if 0xFF was a wildcard. The index of this new splash object (1) matches the
+                    # second-to-last byte in the material label of the new pool
+                    # (0x0F00_0x01_0x00000101).
                     splash_obj = libbol.MapObject.new()
+                    # Route Point ID, -1 as in all the other known GeoSplash objects.
+                    splash_obj.unk_2a = -1
                     splash_obj.presence_filter = 143
                     splash_obj.presence = 3  # Present in both levels of detail.
                     splash_obj.objectid = 4209  # GeoSplash

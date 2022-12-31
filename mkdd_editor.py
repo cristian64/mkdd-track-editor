@@ -2998,11 +2998,11 @@ class GenEditor(QtWidgets.QMainWindow):
             new_area.position = area.position.copy()
             new_area.scale = area.scale.copy()
             new_area.rotation.set_vectors(*area.rotation.get_vectors())
-            new_area.check_flag = area.check_flag
+            new_area.shape = area.shape
             new_area.area_type = area.area_type
             new_area.camera_index = area.camera_index
-            new_area.unk1 = area.unk1
-            new_area.unk2 = area.unk2
+            new_area.feather.i0 = area.feather.i0
+            new_area.feather.i1 = area.feather.i1
             new_area.unkfixedpoint = area.unkfixedpoint
             new_area.unkshort = area.unkshort
             new_area.shadow_id = area.shadow_id
@@ -4223,7 +4223,7 @@ class GenEditor(QtWidgets.QMainWindow):
             for area in self.level_file.areas.areas:
                 if similar_position(area.position, 2164, 12350, -2323):  # Existing area type 0.
                     new_area = clone_map_area(area)
-                    new_area.check_flag = 0  # Non-spherical
+                    new_area.shape = 0  # Non-spherical
                     new_area.position.x = 3027
                     new_area.position.y = 12400 - 700
                     new_area.position.z = -16100
@@ -4235,7 +4235,7 @@ class GenEditor(QtWidgets.QMainWindow):
                     new_areas.append(new_area)
 
                     new_area = clone_map_area(area)
-                    new_area.check_flag = 0  # Non-spherical
+                    new_area.shape = 0  # Non-spherical
                     new_area.position.x = 2100
                     new_area.position.y = 16000 - 700
                     new_area.position.z = -10400
@@ -4253,7 +4253,7 @@ class GenEditor(QtWidgets.QMainWindow):
             for area in self.level_file.areas.areas:
                 if similar_position(area.position, 7312, 11549, 10576):  # Existing area type 2.
                     new_area = clone_map_area(area)
-                    new_area.check_flag = 0  # Non-spherical
+                    new_area.shape = 0  # Non-spherical
                     inner_cylinder_factor = 0.75
                     new_area.position.x = 3027
                     new_area.position.y = 12400 - 700 * inner_cylinder_factor

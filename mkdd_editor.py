@@ -3496,6 +3496,30 @@ class GenEditor(QtWidgets.QMainWindow):
             else:
                 move_swerve(-9178, 96, -30958, -1376, 70, -28406)
 
+            for obj in self.level_file.objects.objects:
+                # Turn sunflowers.
+                if obj.objectid == 3703:  # GeoMarioFlower1
+                    obj.rotation.rotate_around_z(-1.9)
+
+                # Move some of the flowers that otherwise line up poorly.
+                if Course.LuigiCircuit2:
+                    if similar_position(obj.position, 8322, 3251, 7337):
+                        obj.position.x = 8912.0
+                        obj.position.z = 7053.8
+                    elif similar_position(obj.position, 2084, 2066, -744):
+                        obj.position.x = 3051.6
+                        obj.position.z = -1145.2
+
+                # Some trees need to be rotated slightly.
+                if similar_position(obj.position, -20019, 922, -27784):
+                    obj.rotation.rotate_around_z(-0.4)
+                if similar_position(obj.position, -19065, 996, -25158):
+                    obj.rotation.rotate_around_z(-0.8)
+                if similar_position(obj.position, -1274, 3186, 8996):
+                    obj.rotation.rotate_around_z(-0.8)
+                if similar_position(obj.position, 472, 3277, 10672):
+                    obj.rotation.rotate_around_z(-1.4)
+
         elif Course.PeachBeach:
             # In Peach Beach, the respan points around the pipe shortcut didn't need to be rotated
             # 180 degrees. They need to be rotated back.
@@ -3544,6 +3568,11 @@ class GenEditor(QtWidgets.QMainWindow):
                 elif similar_position(obj.position, -13793, 1108, 8698):
                     obj.position.x -= 1200
                     obj.position.z = -2819.96
+
+            # And the lone tree needs to be rotated.
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, -13119, 914, 3374):
+                    obj.rotation.rotate_around_z(3.2)
 
             for point in self.level_file.enemypointgroups.points():
                 # An enemy point near Cock Rock needs to be tweak, or else karts deviate too much to
@@ -3639,6 +3668,67 @@ class GenEditor(QtWidgets.QMainWindow):
                 elif similar_position(obj.position, -24658, 5445, -12651):
                     obj.position = b
 
+                # Reorient dancing cactus.
+                if obj.objectid == 5001:  # TMapObjSanbo
+                    obj.rotation.rotate_around_z(pi)
+
+                # Some need some custom tweaks.
+                if similar_position(obj.position, -7067, 4396, -24856):
+                    obj.rotation.rotate_around_z(0.3)
+                elif similar_position(obj.position, -1953, 4248, -24225):
+                    obj.rotation.rotate_around_z(-0.05)
+                    obj.position.x = -1090.1
+                    obj.position.z = -24756.2
+                elif similar_position(obj.position, 4369, 4478, -24133):
+                    obj.rotation.rotate_around_z(0.4)
+                elif similar_position(obj.position, 13709, 5882, 14097):
+                    obj.rotation.rotate_around_z(-0.3)
+                # Item box between the two cactus is moved too.
+                elif similar_position(obj.position, 13895, 5898, 14539):
+                    obj.position.x = 14036.391
+                    obj.position.z = 14493.3
+                elif similar_position(obj.position, 14084, 5915, 15000):
+                    obj.rotation.rotate_around_z(-0.3)
+                    obj.position.x = 14424.585
+                    obj.position.z = 14747.787
+
+                # Trees need to be rotated too.
+                elif similar_position(obj.position, 20987, 5396, 10178):
+                    obj.rotation.rotate_around_z(1.3)
+                elif similar_position(obj.position, 25702, 5000, 8467):
+                    obj.rotation.rotate_around_z(1.3)
+                elif similar_position(obj.position, 31970, 5696, 7000):
+                    obj.rotation.rotate_around_z(1.3)
+                elif similar_position(obj.position, 28729, 5283, 2527):
+                    obj.rotation.rotate_around_z(1.0)
+                elif similar_position(obj.position, 36000, 6502, -2836):
+                    obj.rotation.rotate_around_z(1.0)
+                elif similar_position(obj.position, 27193, 4888, -6406):
+                    obj.rotation.rotate_around_z(1.0)
+                elif similar_position(obj.position, 31397, 5555, -7192):
+                    obj.rotation.rotate_around_z(1.0)
+                elif similar_position(obj.position, 39103, 7395, -10092):
+                    obj.rotation.rotate_around_z(0.3)
+                elif similar_position(obj.position, 31454, 5863, -12869):
+                    obj.rotation.rotate_around_z(1.1)
+                elif similar_position(obj.position, 28554, 5738, -19415):
+                    obj.rotation.rotate_around_z(1.5)
+                elif similar_position(obj.position, 24307, 5946, -24003):
+                    obj.rotation.rotate_around_z(1.1)
+                elif similar_position(obj.position, 23186, 6119, -27499):
+                    obj.rotation.rotate_around_z(0.8)
+
+                elif similar_position(obj.position, 6462, 5122, 3815):
+                    obj.rotation.rotate_around_z(-1.9)
+                elif similar_position(obj.position, 10763, 5122, 2525):
+                    obj.rotation.rotate_around_z(-1.3)
+                elif similar_position(obj.position, 7550, 5122, -4077):
+                    obj.rotation.rotate_around_z(-1.1)
+                elif similar_position(obj.position, 9424, 5122, -9323):
+                    obj.rotation.rotate_around_z(-1.0)
+                elif similar_position(obj.position, 14074, 5312, -19139):
+                    obj.rotation.rotate_around_z(-2.0)
+
             # The object path of the sand pillar can be reversed (or generally tweaked) as well.
             for route in self.level_file.routes:
                 if similar_position(route.points[0].position, 16132, 5246, 4455):
@@ -3705,6 +3795,19 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.position.x = 9415.858
                     point.position.z = 2266.76
 
+            # Reverse car routes. First segments remains as-is (with some tweaks); the rest is
+            # reversed.
+            route0 = self.level_file.routes[0].points
+            route1 = self.level_file.routes[1].points
+            self.level_file.routes[0].points = route1[0:12] + list(reversed(route0[13:]))
+            self.level_file.routes[1].points = route0[0:13] + list(reversed(route1[12:]))
+            self.level_file.routes[0].points[10].position.x = 24090.082
+            self.level_file.routes[0].points[10].position.z = 13403.824
+            self.level_file.routes[0].points[11].position.x = 23538.855
+            self.level_file.routes[0].points[11].position.z = 12792.097
+            self.level_file.routes[1].points[12].position.x = 24614.918
+            self.level_file.routes[1].points[12].position.z = 12348.223
+
         elif Course.MarioCircuit:
             # Last item boxes are not too useful in the last lap. They will be moved a few curves
             # ahead.
@@ -3721,6 +3824,18 @@ class GenEditor(QtWidgets.QMainWindow):
                     obj.position = a + (b - a) / 4.0 * 3.0
                 elif similar_position(obj.position, -13932, 1100, 15081):
                     obj.position = b
+
+                # Reorient dancing cactus.
+                if obj.objectid == 3711:  # GeoKuribo
+                    obj.rotation.rotate_around_z(pi)
+
+                # Trees need to be rotated too.
+                if similar_position(obj.position, 2891, 1217, 19479):
+                    obj.rotation.rotate_around_z(1.0)
+                elif similar_position(obj.position, 5245, 1623, 20018):
+                    obj.rotation.rotate_around_z(1.2)
+                elif similar_position(obj.position, 10587, 2858, 21940):
+                    obj.rotation.rotate_around_z(0.9)
 
             move_drift(9182, 1745, -25706, 3127, 1338, -23933)
             set_drift(-3429, 1118, 16327, 0, 0, 0)   # Move...
@@ -3985,6 +4100,73 @@ class GenEditor(QtWidgets.QMainWindow):
                 elif similar_position(obj.position, -8118, 3220, -4953):
                     obj.position.y -= 800
 
+            # Dancing road signs need to be reoriented and tweaked.
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, 26006, 1459, 2043):
+                    obj.position.x = 27372
+                    obj.position.z = -2104
+                    obj.rotation.rotate_around_z(pi + 0.99)
+                elif similar_position(obj.position, 27121, 1445, 360):
+                    obj.rotation.rotate_around_z(pi)
+                elif similar_position(obj.position, 15003, 2711, -13767):
+                    obj.position.x = 13979
+                    obj.position.z = -13767
+                    obj.rotation.rotate_around_z(pi + 0.25)
+                elif similar_position(obj.position, 12716, 2628, -13380):
+                    obj.position.x = 12326
+                    obj.position.z = -13136
+                    obj.rotation.rotate_around_z(pi + 0.15)
+                elif similar_position(obj.position, 14211, 2168, 9480):
+                    obj.position.x = 13437
+                    obj.position.z = 10854
+                    obj.rotation.rotate_around_z(pi - 0.4)
+                elif similar_position(obj.position, 13075, 2183, 11301):
+                    obj.position.x = 11579
+                    obj.position.z = 12357
+                    obj.rotation.rotate_around_z(pi - 0.5)
+                elif similar_position(obj.position, -19373, 2207, 11928):
+                    obj.position.x = -19637
+                    obj.position.z = 11645
+                    obj.rotation.rotate_around_z(pi - 0.2)
+                elif similar_position(obj.position, -20800, 2287, 10666):
+                    obj.position.x = -21118
+                    obj.position.z = 9635
+                    obj.rotation.rotate_around_z(pi - 0.3)
+                elif similar_position(obj.position, -24259, 2148, -4969):
+                    obj.position.x = -23369
+                    obj.position.z = -6820
+                    obj.rotation.rotate_around_z(pi - 0.4)
+                elif similar_position(obj.position, -22889, 2138, -7439):
+                    obj.position.x = -21319
+                    obj.position.z = -8484
+                    obj.rotation.rotate_around_z(pi - 0.5)
+                elif similar_position(obj.position, 5357, 1995, -3928):
+                    obj.position.x = 6175
+                    obj.position.y = 2200
+                    obj.position.z = -4580
+                    obj.rotation.rotate_around_z(pi + 0.25)
+                elif similar_position(obj.position, 7282, 2491, -9505):
+                    obj.position.x = 6962
+                    obj.position.y = 2200
+                    obj.position.z = -6244
+                    obj.rotation.rotate_around_z(pi - 0.4)
+                elif similar_position(obj.position, 6067, 2348, -11546):
+                    obj.rotation.rotate_around_z(pi)
+                elif similar_position(obj.position, -7376, 1443, -14242):
+                    obj.position.x = -8625
+                    obj.position.z = -13713
+                    obj.rotation.rotate_around_z(pi + 0.4)
+                elif similar_position(obj.position, -9074, 1456, -13288):
+                    obj.position.x = -9755
+                    obj.position.z = -12493
+                    obj.rotation.rotate_around_z(pi + 0.5)
+                elif similar_position(obj.position, -10092, 1979, -839):
+                    obj.position.x = -7186
+                    obj.position.z = 1995
+                    obj.rotation.rotate_around_z(pi + 1)
+                elif similar_position(obj.position, -9078, 1986, 842):
+                    obj.rotation.rotate_around_z(pi)
+
             for point in self.level_file.respawnpoints:
                 # The automatic attempt to select next enemy point failed in one respawn point.
                 if similar_position(point.position, -10484, 1588, -4949):
@@ -4088,6 +4270,25 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.position.x = 11967.104
                     point.position.z = -117.62
 
+            for obj in self.level_file.objects.objects:
+                # Ice blocks.
+                if similar_position(obj.position, -5692, 1517, 9857):
+                    obj.rotation.rotate_around_z(pi)
+                elif similar_position(obj.position, -4277, 1517, 13086):
+                    obj.rotation.rotate_around_z(3.3)
+                elif similar_position(obj.position, -6400, 1517, 15595):
+                    obj.rotation.rotate_around_z(2.0)
+                elif similar_position(obj.position, 336, 1521, 16536):
+                    obj.rotation.rotate_around_z(-2.1)
+                elif similar_position(obj.position, 3130, 1517, 18294):
+                    obj.rotation.rotate_around_z(-2.2)
+                elif similar_position(obj.position, 3271, 1521, 23621):
+                    obj.rotation.rotate_around_z(2.2)
+                elif similar_position(obj.position, 8253, 1521, 22019):
+                    obj.rotation.rotate_around_z(-2.4)
+                elif similar_position(obj.position, 7184, 1521, 26387):
+                    obj.rotation.rotate_around_z(2.0)
+
             move_drift(19391, 1561, 20204, 14501, 1521, 25645)
             move_drift(11049, 712, 8374, 12624, 1121, 13122)
             move_drift(20487, 1490, -11339, 17212, 1602, -4303)
@@ -4166,11 +4367,55 @@ class GenEditor(QtWidgets.QMainWindow):
                     obj.position.y -= 1000
                     obj.position.z += 9750
 
+            # An intro camera looks too bad and can do with some tweaking.
+            for camera in intro_cameras:
+                if similar_position(camera.position, 7644, 4106, -278):
+                    camera.position.x = 6016.686
+                    camera.position.z = 1852.31
+                    camera.position3.x = 7584.0
+                    camera.position3.z = -7105.0
+                    camera.position2.x = 25879.0
+                    camera.position2.z = 1367.0
+
             move_drift(-24648, 4000, -7710, -24500, 4100, 2405)
             move_drift(-29178, 4000, -5643, -28800, 4000, 400)
 
             move_swerve(11078, 4000, 13209, 8017, 4000, 8632)
             move_swerve(35957, 4430, 4000, 40176, 4000, 9464)
+
+            # Road lights need to be reoriented and moved.
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, -8608, 4020, -10632):
+                    obj.position.x = -12195.2
+                    obj.position.z = -11566.8
+                    obj.rotation.rotate_around_z(-pi / 2)
+                elif similar_position(obj.position, -8378, 4020, -13912):
+                    obj.position.x = 22906.0
+                    obj.position.z = 14476.0
+                    obj.rotation.rotate_around_z(pi)
+                elif similar_position(obj.position, 6786, 4020, -2226):
+                    obj.position.x = 6710.0
+                    obj.rotation.rotate_around_z(pi / 2)
+                elif similar_position(obj.position, 9153, 4020, 3377):
+                    obj.position.x = 5717.0
+                    obj.position.z = 1522.6
+                    obj.rotation.rotate_around_z(-pi / 2)
+                elif similar_position(obj.position, 27057, 4020, 12046):
+                    obj.position.x = 23711.4
+                    obj.position.z = 11037.2
+                    obj.rotation.rotate_around_z(pi / 2)
+
+            # Reverse car routes.
+            self.level_file.routes[0].points.reverse()
+            self.level_file.routes[1].points.reverse()
+            self.level_file.routes[3].points.reverse()
+            route2 = self.level_file.routes[2].points
+            route4 = self.level_file.routes[4].points
+            self.level_file.routes[2].points = route2[0:4] + list(reversed(route2[4:]))
+            self.level_file.routes[4].points = route4[0:3] + list(reversed(route4[3:]))
+            self.level_file.routes[2].points[2].position.z = 7140
+            self.level_file.routes[2].points[3].position.z = 7500
+            self.level_file.routes[4].points[2].position.x = 16864.784
 
         elif Course.YoshiCircuit:
             for point in self.level_file.respawnpoints:
@@ -5230,6 +5475,11 @@ class GenEditor(QtWidgets.QMainWindow):
                 if similar_position(area.position, -7263, 6057, 25103):
                     self.level_file.areas.areas.remove(area)
                     break
+
+            for obj in self.level_file.objects.objects:
+                # Reorient falling blocks.
+                if obj.objectid == 4701:  # TMapObjDossun
+                    obj.rotation.rotate_around_z(pi)
 
             # From start to the stairs.
             set_swerve(3785, 8100, 19666, 0)

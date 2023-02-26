@@ -827,6 +827,23 @@ class GenEditor(QtWidgets.QMainWindow):
         copy_position_action.setShortcut("Ctrl+Shift+P")
         copy_position_action.triggered.connect(copy_position)
 
+        def rotate_selection():
+            default = rotate_selection.last_value if hasattr(rotate_selection, 'last_value') else 0
+            value, ok = QtWidgets.QInputDialog.getDouble(self,
+                                                         'Rotate Selection',
+                                                         'Z Angle (radians):',
+                                                         default,
+                                                         decimals=4)
+            if not value or not ok:
+                return
+            rotate_selection.last_value = value
+            for rotation in self.level_view.selected_rotations:
+                rotation.rotate_around_z(value)
+
+        rotate_selection_action = self.misc_menu.addAction("Rotate Selection")
+        rotate_selection_action.setShortcut("Ctrl+Shift+R")
+        rotate_selection_action.triggered.connect(rotate_selection)
+
         def clipboard_changed(mode):
             if mode != 0:
                 return

@@ -3391,7 +3391,7 @@ class GenEditor(QtWidgets.QMainWindow):
         # order. This makes the data more human-readable, but it also appears to be a requirement;
         # the AI might misbehave if the links are in descending order.
         first_segment = None
-        all_segments = set()
+        all_segments = collections.OrderedDict()  # Ordered set.
         for group in self.level_file.enemypointgroups.groups:
             # Convert to string. It will be replaced with the new integer value.
             group.points[0].link = str(group.points[0].link)
@@ -3399,7 +3399,7 @@ class GenEditor(QtWidgets.QMainWindow):
             segment = (group.points[0].link, group.points[-1].link)
             if first_segment is None:
                 first_segment = segment
-            all_segments.add(segment)
+            all_segments[segment] = None
         visited_segments = collections.OrderedDict()
         pending_segments = [first_segment]
         while pending_segments:

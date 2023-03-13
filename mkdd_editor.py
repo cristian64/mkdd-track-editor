@@ -3740,6 +3740,21 @@ class GenEditor(QtWidgets.QMainWindow):
                         if obj.objectid == 5003:  # TMapObjSandPillar
                             obj.position = route.points[0].position.copy()
 
+            # An intro camera looks too bad and can do with some tweaking.
+            for camera in intro_cameras:
+                if similar_position(camera.position, -19108, 6673, 3243):
+                    camera.rotation.rotate_around_z(3)
+                    camera.position2.y = 3100
+                    camera.position2.z = -7700
+                    camera.position3.y = 8000
+                    camera.position3.z = 900
+            for route in self.level_file.routes:
+                if similar_position(route.points[0].position, 18577, 7842, -22325):
+                    route.points[0].position.x = 11103
+                    route.points[0].position.y = 11000
+                    route.points[0].position.z = 20565
+                    route.points[1].position.y = 8000
+
             set_drift(-25178, 5427, -20962, 0, 0, 0)     # Move...
             set_drift(-11860, 4937, -27092, 1, 180, 90)  # ...with some tweaks.
             set_drift(12653, 5196, -28575, 0, 0, 0)     # Move...

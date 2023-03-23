@@ -158,7 +158,6 @@ class GenEditor(QMainWindow):
 
         self.undo_history.append(self.generate_undo_entry())
 
-        self.points_added = 0
         self.leveldatatreeview.set_objects(self.level_file)
         self.leveldatatreeview.bound_to_group(self.level_file)
 
@@ -224,8 +223,6 @@ class GenEditor(QMainWindow):
         #self.pik_control.button_move_object.setChecked(False)
         self._window_title = ""
         self._user_made_change = False
-
-        self.points_added = 0
 
     def set_base_window_title(self, name):
         self._window_title = name
@@ -1924,7 +1921,7 @@ class GenEditor(QMainWindow):
             return
 
         obj = self.object_to_be_added[0]
-        self.points_added = 0
+
         if isinstance(obj, (libbol.EnemyPointGroup, libbol.CheckpointGroup, libbol.Route,
                             libbol.LightParam, libbol.MGEntry)):
             obj = deepcopy(obj)
@@ -2008,8 +2005,19 @@ class GenEditor(QMainWindow):
                 if group == 0 and not self.level_file.enemypointgroups.groups:
                     self.level_file.enemypointgroups.groups.append(libbol.EnemyPointGroup.new())
                 placeobject.group = group
-                self.level_file.enemypointgroups.groups[group].points.insert(position + self.points_added, placeobject)
-                self.points_added += 1
+                insertion_index = position
+                # If a selection exists, use it as reference for the insertion point.
+                selected_items = self.leveldatatreeview.selectedItems()
+                if selected_items:
+                    selected_item = selected_items[-1]
+                    if isinstance(selected_item.bound_to, libbol.EnemyPoint):
+                        placeobject.group = selected_item.parent().get_index_in_parent()
+                        insertion_index = selected_item.get_index_in_parent() + 1
+                    elif isinstance(selected_item.bound_to, libbol.EnemyPointGroup):
+                        placeobject.group = selected_item.get_index_in_parent()
+                        insertion_index = 0
+                self.level_file.enemypointgroups.groups[placeobject.group].points.insert(
+                    insertion_index, placeobject)
             elif isinstance(object, libbol.RoutePoint):
                 # For convenience, create a group if none exists yet.
                 if group == 0 and not self.level_file.routes:
@@ -2039,7 +2047,6 @@ class GenEditor(QMainWindow):
         self.pik_control.button_add_object.setChecked(False)
         self.level_view.set_mouse_mode(mkdd_widgets.MOUSE_MODE_NONE)
         self.object_to_be_added = None
-        self.points_added = 0
 
         if option == "add_enemygroup":
             self.level_file.enemypointgroups.add_group()
@@ -2116,7 +2123,6 @@ class GenEditor(QMainWindow):
     def keyPressEvent(self, event: QtGui.QKeyEvent):
 
         if event.key() == Qt.Key_Escape:
-            self.points_added = 0
             self.level_view.set_mouse_mode(mkdd_widgets.MOUSE_MODE_NONE)
             self.pik_control.button_add_object.setChecked(False)
             #self.pik_control.button_move_object.setChecked(False)

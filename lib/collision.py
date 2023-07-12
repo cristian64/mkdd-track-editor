@@ -1,5 +1,8 @@
 import math
-from .vectors import Vector3, Triangle
+
+import numpy
+
+from .vectors import Vector3, Triangle, get_ray_collision
 
 
 def collides(face_v1, face_v2, face_v3, box_mid_x, box_mid_z, box_size_x, box_size_z):
@@ -125,6 +128,12 @@ class Collision(object):
             if not triangle.normal.is_zero():
                 self.triangles.append(triangle)
 
+        self.flat_triangles = []
+        for t in self.triangles:
+            self.flat_triangles.extend((t.origin.x, t.origin.y, t.origin.z, t.p2.x, t.p2.y, t.p2.z,
+                                        t.p3.x, t.p3.y, t.p3.z))
+        self.flat_triangles = numpy.array(self.flat_triangles)
+
         self.cell_size = 2000
 
         box_size_x = self.cell_size
@@ -249,7 +258,7 @@ class Collision(object):
 
         return hit
 
-    def collide_ray(self, ray):
+    def collide_ray_slow(self, ray):
         best_distance = None
         place_at = None
 
@@ -264,3 +273,19 @@ class Collision(object):
                     best_distance = distance
 
         return place_at
+
+    def collide_ray(self, ray):
+        place_at = get_ray_collision(
+            ray.origin.x,
+            ray.origin.y,
+            ray.origin.z,
+            ray.direction.x,
+            ray.direction.y,
+            ray.direction.z,
+            self.flat_triangles,
+        )
+
+        if math.isnan(place_at[0]):
+            return None
+
+        return Vector3(*place_at)

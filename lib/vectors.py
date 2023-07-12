@@ -1,6 +1,8 @@
-from math import sqrt
+from math import nan, sqrt
 from io import StringIO
-from numpy import array
+
+import numba
+import numpy
 
 
 class Vector3(object):
@@ -268,6 +270,154 @@ class Line(object):
                 return False
         else:
             return False
+
+
+@numba.jit(nopython=True, nogil=True, cache=True)
+def cross(
+    x0: float,
+    y0: float,
+    z0: float,
+    x1: float,
+    y1: float,
+    z1: float,
+) -> tuple[float, float, float]:
+    return y0 * z1 - z0 * y1, z0 * x1 - x0 * z1, x0 * y1 - y0 * x1
+
+
+@numba.jit(nopython=True, nogil=True, cache=True)
+def dot(
+    x0: float,
+    y0: float,
+    z0: float,
+    x1: float,
+    y1: float,
+    z1: float,
+) -> tuple[float, float, float]:
+    return x0 * x1 + y0 * y1 + z0 * z1
+
+
+@numba.jit(nopython=True, nogil=True, cache=True)
+def length2(x: float, y: float, z: float) -> float:
+    return x * x + y * y + z * z
+
+
+@numba.jit(nopython=True, nogil=True, cache=True)
+def length(x: float, y: float, z: float) -> float:
+    return sqrt(x * x + y * y + z * z)
+
+
+@numba.jit(nopython=True, nogil=True, cache=True)
+def get_normal(
+    x0: float,
+    y0: float,
+    z0: float,
+    x1: float,
+    y1: float,
+    z1: float,
+    x2: float,
+    y2: float,
+    z2: float,
+) -> tuple[float, float, float]:
+    x, y, z = cross(x2 - x0, y2 - y0, z2 - z0, x1 - x0, y1 - y0, z1 - z0)
+    size = length(x, y, z)
+    x /= size
+    y /= size
+    z /= size
+    return -x, -y, -z
+
+
+@numba.jit(nopython=True, nogil=True, cache=True)
+def subtract(
+    x0: float,
+    y0: float,
+    z0: float,
+    x1: float,
+    y1: float,
+    z1: float,
+) -> tuple[float, float, float]:
+    return x0 - x1, y0 - y1, z0 - z1
+
+
+@numba.jit(nopython=True, nogil=True, cache=True)
+def get_line_triangle_collision(
+    x: float,
+    y: float,
+    z: float,
+    dx: float,
+    dy: float,
+    dz: float,
+    x0: float,
+    y0: float,
+    z0: float,
+    x1: float,
+    y1: float,
+    z1: float,
+    x2: float,
+    y2: float,
+    z2: float,
+):
+    nx, ny, nz = get_normal(x0, y0, z0, x1, y1, z1, x2, y2, z2)
+
+    d = dot(nx, ny, nz, dx, dy, dz)
+    if d == 0.0:
+        return 0.0, 0.0, 0.0, 0.0
+
+    d = dot(*subtract(x0, y0, z0, x, y, z), nx, ny, nz) / d
+    if d < 0.0:
+        return 0.0, 0.0, 0.0, 0.0
+
+    intersection_point = x + dx * d, y + dy * d, z + dz * d
+
+    C0 = intersection_point[0] - x0, intersection_point[1] - y0, intersection_point[2] - z0
+    if dot(nx, ny, nz, *cross(*subtract(x1, y1, z1, x0, y0, z0), *C0)) > 0.0:
+        C1 = intersection_point[0] - x1, intersection_point[1] - y1, intersection_point[2] - z1
+        if dot(nx, ny, nz, *cross(*subtract(x2, y2, z2, x1, y1, z1), *C1)) > 0.0:
+            C2 = intersection_point[0] - x2, intersection_point[1] - y2, intersection_point[2] - z2
+            if dot(nx, ny, nz, *cross(*subtract(x0, y0, z0, x2, y2, z2), *C2)) > 0.0:
+                return d, *intersection_point
+
+    return 0.0, 0.0, 0.0, 0.0
+
+
+@numba.jit(nopython=True, nogil=True, cache=True)
+def get_ray_collision(
+    x: float,
+    y: float,
+    z: float,
+    dx: float,
+    dy: float,
+    dz: float,
+    triangles: numpy.array,
+) -> tuple[float, float, float]:
+    collisions = []
+    for t in range(len(triangles) // 9):
+        collision = get_line_triangle_collision(
+            x,
+            y,
+            z,
+            dx,
+            dy,
+            dz,
+            triangles[t * 9 + 0],
+            triangles[t * 9 + 1],
+            triangles[t * 9 + 2],
+            triangles[t * 9 + 3],
+            triangles[t * 9 + 4],
+            triangles[t * 9 + 5],
+            triangles[t * 9 + 6],
+            triangles[t * 9 + 7],
+            triangles[t * 9 + 8],
+        )
+
+        if collision[0] > 0.0:
+            collisions.append(collision)
+
+    if collisions:
+        collisions.sort()
+        return collisions[0][1:]
+
+    return nan, nan, nan
+
 
 class Matrix4x4(object):
     def __init__(self,

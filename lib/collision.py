@@ -1,4 +1,7 @@
 import math
+
+import numba
+
 from .vectors import Vector3, Triangle
 
 
@@ -250,4 +253,6 @@ class Collision(object):
         return hit
 
     def collide_ray(self, ray):
-        return ray.collide_triangles(self.triangles)
+        point = ray.collide_triangles(numba.typed.List(self.triangles))
+
+        return point if point.x != math.nan else None

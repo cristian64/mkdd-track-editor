@@ -1,9 +1,16 @@
+import math
+import sys
+
+import numba
 import numpy as np
 
 
+@numba.experimental.jitclass([
+    ('array', numba.float64[:]),
+])
 class Vector3:
     def __init__(self, x, y, z):
-        self.array = np.array((x, y, z), dtype=float)
+        self.array = np.array((x, y, z), dtype=np.float64)
 
     @property
     def x(self):
@@ -30,7 +37,7 @@ class Vector3:
         self.array[2] = value
 
     def copy(self):
-        return Vector3(*self.array)
+        return Vector3(self.array[0], self.array[1], self.array[2])
 
     def norm(self):
         return np.linalg.norm(self.array)
@@ -39,28 +46,34 @@ class Vector3:
         self.array /= self.norm()
 
     def normalized(self):
-        return Vector3(*(self.array / self.norm()))
+        array = self.array / self.norm()
+        return Vector3(array[0], array[1], array[2])
 
     def cross(self, other_vec):
-        return Vector3(*np.cross(self.array, other_vec.array))
+        array = np.cross(self.array, other_vec.array)
+        return Vector3(array[0], array[1], array[2])
 
     def dot(self, other_vec):
         return np.vdot(self.array, other_vec.array)
 
     def __hash__(self):
-        return hash(tuple(self.array))
+        return int(self.array[0] * self.array[1] - self.array[2])
 
     def __truediv__(self, other):
-        return Vector3(*(self.array / other))
+        array = self.array / other
+        return Vector3(array[0], array[1], array[2])
 
     def __add__(self, other_vec):
-        return Vector3(*(self.array + other_vec.array))
+        array = self.array + other_vec.array
+        return Vector3(array[0], array[1], array[2])
 
     def __mul__(self, other):
-        return Vector3(*(self.array * other))
+        array = self.array * other
+        return Vector3(array[0], array[1], array[2])
 
     def __sub__(self, other_vec):
-        return Vector3(*(self.array - other_vec.array))
+        array = self.array - other_vec.array
+        return Vector3(array[0], array[1], array[2])
 
     def cos_angle(self, other_vec):
         return self.dot(other_vec)/(self.norm()*other_vec.norm())
@@ -85,13 +98,14 @@ class Vector3:
         return not self.array.any()
 
     def __eq__(self, other_vec):
-        return np.all(self.array == other_vec.array) if isinstance(other_vec, Vector3) else False
+        return np.all(self.array == other_vec.array)
 
-    def __str__(self):
-        return str(tuple(self.array))
+    # def __str__(self):
+    #     print("HERE I AM")
+    #     return str((self.array[0], self.array[1], self.array[2]))
 
-    def __repr__(self):
-        return str(tuple(self.array))
+    # def __repr__(self):
+    #     return str(tuple(self.array))
 
     def distance(self, other):
         return (other - self).norm()
@@ -133,6 +147,16 @@ class Plane:
         return cls(origin, Vector3(0, 1, 0), Vector3(0, 0, 1))
 
 
+@numba.experimental.jitclass([
+    ('origin', Vector3.class_type.instance_type),
+    ('p2', Vector3.class_type.instance_type),
+    ('p3', Vector3.class_type.instance_type),
+    ('p1_to_p2', Vector3.class_type.instance_type),
+    ('p1_to_p3', Vector3.class_type.instance_type),
+    ('p2_to_p3', Vector3.class_type.instance_type),
+    ('p3_to_p1', Vector3.class_type.instance_type),
+    ('normal', Vector3.class_type.instance_type),
+])
 class Triangle:
     def __init__(self, p1, p2, p3):
         self.origin = p1
@@ -152,6 +176,13 @@ class Triangle:
         return self.normal.dot(vec) == 0
 
 
+MAX_FLOAT = sys.float_info.max
+
+
+@numba.experimental.jitclass([
+    ('origin', Vector3.class_type.instance_type),
+    ('direction', Vector3.class_type.instance_type),
+])
 class Line:
     def __init__(self, origin, direction):
         self.origin = origin
@@ -163,12 +194,12 @@ class Line:
 
         dot = normal.dot(self.direction)
         if dot == 0.0:
-            return False
+            return Vector3(0, 0, 0), -1
 
         d = (tri.origin - self.origin).dot(normal) / dot
 
         if d < 0:
-            return False
+            return Vector3(0, 0, 0), -1
 
         intersection_point = self.origin + self.direction * d
 
@@ -180,21 +211,20 @@ class Line:
                 if normal.dot(tri.p3_to_p1.cross(C2)) > 0:
                     return intersection_point, d
 
-        return False
+        return Vector3(0, 0, 0), -1
 
     def collide_triangles(self, triangles):
-        best_distance = None
-        place_at = None
+        best_distance = MAX_FLOAT
+        place_at = Vector3(math.nan, math.nan, math.nan)
 
         for tri in triangles:
-            collision = self.collide(tri)
+            point, distance = self.collide(tri)
+            if distance <= 0:
+                continue
 
-            if collision is not False:
-                point, distance = collision
-
-                if best_distance is None or distance < best_distance:
-                    place_at = point
-                    best_distance = distance
+            if 0 < distance < best_distance:
+                place_at = point
+                best_distance = distance
 
         return place_at
 
@@ -209,3 +239,6 @@ class Line:
                 return point, d
 
         return False
+
+
+print("Vector3", Vector3(3, 4, 5))

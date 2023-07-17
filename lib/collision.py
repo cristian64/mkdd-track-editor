@@ -250,17 +250,4 @@ class Collision(object):
         return hit
 
     def collide_ray(self, ray):
-        best_distance = None
-        place_at = None
-
-        for tri in self.triangles:
-            collision = ray.collide(tri)
-
-            if collision is not False:
-                point, distance = collision
-
-                if best_distance is None or distance < best_distance:
-                    place_at = point
-                    best_distance = distance
-
-        return place_at
+        return ray.collide_triangles(self.triangles)

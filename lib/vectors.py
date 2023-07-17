@@ -182,6 +182,22 @@ class Line:
 
         return False
 
+    def collide_triangles(self, triangles):
+        best_distance = None
+        place_at = None
+
+        for tri in triangles:
+            collision = self.collide(tri)
+
+            if collision is not False:
+                point, distance = collision
+
+                if best_distance is None or distance < best_distance:
+                    place_at = point
+                    best_distance = distance
+
+        return place_at
+
     def collide_plane(self, plane: Plane):
         pos = self.origin
         direction = self.direction

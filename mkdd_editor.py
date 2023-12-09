@@ -4277,6 +4277,15 @@ class GenEditor(QtWidgets.QMainWindow):
                     obj.position = b
                     obj.userdata[1] = 1  # Always single prize
 
+            # Move the snowmen so they don't land behind trees or in downhills.
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, 16065, 2060, 21836):
+                    obj.position = type(obj.position)(22311, 1876, 27388)
+                elif similar_position(obj.position, 22887, 2293, 16913):
+                    obj.position = type(obj.position)(15546, 1775, 17324)
+                elif similar_position(obj.position, 22887, 2244, 18372):
+                    obj.position = type(obj.position)(23853, 2343, 21198)
+
             for point in self.level_file.enemypointgroups.points():
                 # Near the stalactites in the cave, points needs to be tweak, or else kart hit the
                 # stalactites in the middle.

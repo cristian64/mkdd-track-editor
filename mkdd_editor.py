@@ -3657,8 +3657,8 @@ class GenEditor(QtWidgets.QMainWindow):
             # The last item boxes are not too useful in the last lap. They will be moved back, to
             # give time to players to use the item.
             for obj in self.level_file.objects.objects:
-                a = type(obj.position)(-25809.5, 5424.471, -22410.2)
-                b = type(obj.position)(-24233.2, 5417.722, -22045.0)
+                a = type(obj.position)(-20782, 5689, -29392)
+                b = type(obj.position)(-19979, 5367, -27748)
                 if similar_position(obj.position, -26163, 5440, -12651):
                     obj.position = a
                 elif similar_position(obj.position, -25657, 5442, -12651):
@@ -3667,6 +3667,17 @@ class GenEditor(QtWidgets.QMainWindow):
                     obj.position = a + (b - a) / 3.0 * 2.0
                 elif similar_position(obj.position, -24658, 5445, -12651):
                     obj.position = b
+
+                elif similar_position(obj.position, -15221, 5348, -28576):
+                    obj.position = type(obj.position)(-10949, 4753, -25752)
+                elif similar_position(obj.position, -14817, 5590, -29861):
+                    obj.position = type(obj.position)(-10545, 4722, -27037)
+                elif similar_position(obj.position, -14293, 5205, -27932):
+                    obj.position = type(obj.position)(-10022, 4649, -25109)
+                elif similar_position(obj.position, -14909, 5092, -27365):
+                    obj.position = type(obj.position)(-10638, 4743, -24541)
+                elif similar_position(obj.position, -14136, 5414, -29153):
+                    obj.position = type(obj.position)(-9865, 4592, -26329)
 
                 # Reorient dancing cactus.
                 if obj.objectid == 5001:  # TMapObjSanbo
@@ -3827,8 +3838,8 @@ class GenEditor(QtWidgets.QMainWindow):
             # Last item boxes are not too useful in the last lap. They will be moved a few curves
             # ahead.
             for obj in self.level_file.objects.objects:
-                a = type(obj.position)(-4969.5, 1100, 18378.6)
-                b = type(obj.position)(-3498.1, 1100, 18847.9)
+                a = type(obj.position)(-1110, 1174, 13390)
+                b = type(obj.position)(-1355, 1115, 15357)
                 if similar_position(obj.position, -15943, 1100, 15241):
                     obj.position = a
                 elif similar_position(obj.position, -15435, 1100, 15205):
@@ -4448,8 +4459,8 @@ class GenEditor(QtWidgets.QMainWindow):
                     point.unk1 = 102  # Next enemy point.
             # Move the last item boxes, so that the now last curve can be fun.
             for obj in self.level_file.objects.objects:
-                a = type(obj.position)(-1951.3, 13000, 20239.401)
-                b = type(obj.position)(-938.9, 13005, 19263.9)
+                a = type(obj.position)(-4250, 12951, 18133)
+                b = type(obj.position)(-3155, 12952, 16932)
                 if similar_position(obj.position, -7804, 12716, 29073):
                     obj.position = b
                 elif similar_position(obj.position, -7275, 12716, 29000):
@@ -4793,8 +4804,8 @@ class GenEditor(QtWidgets.QMainWindow):
             # Move the now last four item boxes closer to the new landing area, or else there is no
             # much time left to use the items in the last lap, as they are too close to the goal.
             for obj in self.level_file.objects.objects:
-                a = type(obj.position)(-21302.0, 8429.53, 17943.0)
-                b = type(obj.position)(-20593.0, 8370.228, 17565.0)
+                a = type(obj.position)(-19352, 8480, 20529)
+                b = type(obj.position)(-18799, 8463, 19630)
                 if similar_position(obj.position, -16497, 5538, 8549):
                     obj.position = a
                 elif similar_position(obj.position, -16113, 5525, 8424):
@@ -5496,6 +5507,17 @@ class GenEditor(QtWidgets.QMainWindow):
                 if obj.objectid == 4701:  # TMapObjDossun
                     obj.rotation.rotate_around_z(pi)
 
+            # Move last item boxes further from the finish line.
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, 2634, 6937, -6847):
+                    obj.position = type(obj.position)(2573, 6930, -19643)
+                elif similar_position(obj.position, 3084, 6937, -6847):
+                    obj.position = type(obj.position)(3070, 6930, -19364)
+                elif similar_position(obj.position, 4038, 6937, -6847):
+                    obj.position = type(obj.position)(4099, 6930, -19364)
+                elif similar_position(obj.position, 4515, 6937, -6847):
+                    obj.position = type(obj.position)(4662, 6930, -19643)
+
             # From start to the stairs.
             set_swerve(3785, 8100, 19666, 0)
             set_swerve(3812, 8100, 22513, 3)
@@ -5758,6 +5780,17 @@ class GenEditor(QtWidgets.QMainWindow):
             self.level_file.respawnpoints[12].unk3 = 13
             self.level_file.respawnpoints[13].unk3 = 10
             self.level_file.respawnpoints[14].unk3 = 61
+
+            # Move last item boxes further from the finish line.
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, -780, 44710, -20686):
+                    obj.position = type(obj.position)(-5046, 38631, -11214)
+                elif similar_position(obj.position, -257, 44722, -20688):
+                    obj.position = type(obj.position)(-4647, 38525, -10828)
+                elif similar_position(obj.position, 268, 44731, -20689):
+                    obj.position = type(obj.position)(-4248, 38412, -10442)
+                elif similar_position(obj.position, 762, 44744, -20696):
+                    obj.position = type(obj.position)(-3849, 38272, -10056)
 
             # First snail ascent.
             swap_drift(-19171, 63088, -29747, -16667, 58207, -36896)

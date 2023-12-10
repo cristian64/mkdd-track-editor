@@ -1,0 +1,83 @@
+diff --git a/mkdd_editor.py b/mkdd_editor.py
+index 3212748..354f8e4 100644
+--- a/mkdd_editor.py
++++ b/mkdd_editor.py
+@@ -1017,6 +1017,59 @@ class GenEditor(QtWidgets.QMainWindow):
+             self.profile_action.triggered.connect(self.action_profile_start_stop)
+             self.profile = None
+ 
++        def copy_position():
++            lines = []
++            for position in self.level_view.selected_positions:
++                line = f'{int(position.x)}, {int(position.y)}, {int(position.z)}'
++                lines.append(line)
++            QtWidgets.QApplication.clipboard().setText('\n'.join(lines))
++            print(f'Clipboard changed: {"  ".join(lines)}')
++
++        self.tools_menu.addSeparator()
++        copy_position_action = self.tools_menu.addAction("Copy Position")
++        copy_position_action.setShortcut("Ctrl+Shift+P")
++        copy_position_action.triggered.connect(copy_position)
++
++        def clipboard_changed(mode):
++            if mode != QtGui.QClipboard.Clipboard:
++                return
++
++            text = QtWidgets.QApplication.clipboard().text()
++
++            self.level_view.last_clipboard_positions = []
++
++            text = text.replace(',', ' ')
++            text = text.replace('.position', ' ')
++            text = text.replace('.x', ' ')
++            text = text.replace('.y', ' ')
++            text = text.replace('.z', ' ')
++            text = text.replace('similar_position', ' ')
++            text = text.replace('respawn_point', ' ')
++            text = text.replace('point', ' ')
++            text = text.replace('area', ' ')
++            text = text.replace('elif', ' ')
++            text = text.replace('if', ' ')
++            text = text.replace(':', ' ')
++            text = text.replace('(', ' ')
++            text = text.replace(')', ' ')
++            text = text.replace('=', ' ')
++
++            words = tuple(w.strip() for w in text.split() if w)
++
++            if len(words) % 3 == 0:
++                for i in range(0, len(words), 3):
++                    try:
++                        x = float(words[i])
++                        y = float(words[i + 1])
++                        z = float(words[i + 2])
++                        self.level_view.last_clipboard_positions.append((x, y, z))
++                    except ValueError:
++                        pass
++
++            self.update_3d()
++
++        QtWidgets.QApplication.clipboard().changed.connect(clipboard_changed)
++
+     def action_hook_into_dolphion(self, checked: bool):
+         self.dolphin.autoconnect = False
+ 
+diff --git a/mkdd_widgets.py b/mkdd_widgets.py
+index 00d952b..7eebc8d 100644
+--- a/mkdd_widgets.py
++++ b/mkdd_widgets.py
+@@ -1448,6 +1448,14 @@ class BolMapViewer(QtOpenGLWidgets.QOpenGLWidget):
+             glLineWidth(1.0)
+ 
+         glEnable(GL_DEPTH_TEST)
++
++        if hasattr(self, 'last_clipboard_positions'):
++            glLineWidth(3)
++            for position in self.last_clipboard_positions:
++                glColor3f(1.0, 0.1, 1.0)
++                self.models.draw_cylinder(Vector3(*position), 1000, 1000)
++            glLineWidth(1)
++
+         glFinish()
+ 
+     @catch_exception

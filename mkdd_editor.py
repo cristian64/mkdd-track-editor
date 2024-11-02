@@ -3945,6 +3945,12 @@ class GenEditor(QtWidgets.QMainWindow):
                     splash_obj.userdata[1] = 2  # Type of splash.
                     self.level_file.objects.objects.append(splash_obj)
 
+            # The intro camera near the pool needs to be moved to the other side of the cruiser,
+            # as the logo has been rotated 90 degrees.
+            for camera in intro_cameras:
+                if similar_position(camera.position, -23935, 12201, -12053):
+                    camera.position.z *= -1
+
             # A respawn point (by the swimming pool) needs its next enemy point set, its preceding
             # checkpoint index set, and its orientation tweaked.
             for point in self.level_file.respawnpoints:

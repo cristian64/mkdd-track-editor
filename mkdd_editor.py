@@ -4485,6 +4485,14 @@ class GenEditor(QtWidgets.QMainWindow):
                     obj.position = a + (b - a) / 3.0
                 elif similar_position(obj.position, -6222, 12716, 28839):
                     obj.position = a
+            # Move a piranha plant to the start of the curve, and swap their player mode presence.
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, 12359, 12743, 27339):
+                    obj.position.x = 12011.2998
+                    obj.position.z = 31685.7012
+                    obj.presence = 3  # Single and multiplayer
+                if similar_position(obj.position, 13070, 12742, 29002):
+                    obj.presence = 1  # Single player only
             # Add a new respawn point for the new pipe shortcut in the alternate path.
             new_respawn_point = libbol.JugemPoint.new()
             new_respawn_point.position.x = 2120.87

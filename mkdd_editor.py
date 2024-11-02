@@ -2912,7 +2912,8 @@ class GenEditor(QtWidgets.QMainWindow):
     def reverse_official_track(self):
 
         def similar_position(p, x, y, z):
-            return abs(p.x - x) < 1.0 and abs(p.y - y) < 1.0 and abs(p.z - z) < 1.0
+            return ((x is None or abs(p.x - x) < 1.0) and (y is None or abs(p.y - y) < 1.0)
+                    and (z is None or abs(p.z - z) < 1.0))
 
         def move_swerve(x, y, z, x2, y2, z2):
             for src in self.level_file.enemypointgroups.points():
@@ -4732,6 +4733,12 @@ class GenEditor(QtWidgets.QMainWindow):
                     new_respawn_point.unk2 = -1
                     new_respawn_point.unk3 = -1
                     self.level_file.respawnpoints.append(new_respawn_point)
+            # Move sun and lens flare higher
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, 59948, None, -59102):
+                    obj.position.x += 15000
+                    # obj.position.y += 1000
+                    obj.position.z += 55000
             # The path of the camera that was pointing at the billboard and then the cannon will be
             # reversed, so that the billboard is given the light spot.
             for camera in self.level_file.cameras:

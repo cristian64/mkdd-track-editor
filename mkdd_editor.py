@@ -3521,6 +3521,42 @@ class GenEditor(QtWidgets.QMainWindow):
                 if similar_position(obj.position, 472, 3277, 10672):
                     obj.rotation.rotate_around_z(-1.4)
 
+            # An assertion is produced at `0x8019A864` (Debug build) in `Course::createCLPoint()`.
+            # It seems the game does not like that two waypoint groups connect to the last group.
+            # The workaround is to create a few more points in the alternative path so that it can
+            # connect to the second to last waypoint group.
+            enemygroup: libbol.EnemyPointGroup = self.level_file.enemypointgroups.groups[1]
+            enemygroup.points[0].link = -1  # It was 0 at this point.
+            if Course.LuigiCircuit:
+                newpoints = (
+                    (-6098.9192, 9.6514, -16796.7120, 1200),
+                    (-6080.3755, 123.5721, -12431.6113, 1200),
+                    (-4787.0928, 345.9955, -8875.0840, 1200),
+                    (-2071.1992, 917.7584, -4671.9150, 1200),
+                    (1162.0078, 1729.1930, -1762.0287, 1200),
+                    (5041.8560, 2728.4709, 1988.4913, 1200),
+                    (6593.7954, 3174.6599, 5609.6831, 1200),
+                    (7951.7423, 3315.2980, 11235.4631, 1200),
+                    (8857.0402, 3574.3961, 13951.3569, 1200),
+                )
+            else:
+                newpoints = (
+                    (451.0645, 1956.8075, 56.0020, 1200),
+                    (4035.6072, 2854.1999, 3693.2586, 1200),
+                    (6671.3003, 3240.9164, 7963.0814, 1200),
+                    (8094.5746, 3398.6253, 11705.7657, 600),
+                    (8868.8516, 3574.3961, 14098.5977, 1200),
+                )
+            for x, y, z, scale in reversed(newpoints):
+                enemypoint = libbol.EnemyPoint.new()
+                enemypoint.position.x = x
+                enemypoint.position.y = y
+                enemypoint.position.z = z
+                enemypoint.scale = scale
+                enemygroup.points.insert(0, enemypoint)
+            # To connect to the second to last group.
+            enemygroup.points[0].link = self.level_file.enemypointgroups.groups[-2].points[-1].link
+
         elif Course.PeachBeach:
             # In Peach Beach, the respan points around the pipe shortcut didn't need to be rotated
             # 180 degrees. They need to be rotated back.

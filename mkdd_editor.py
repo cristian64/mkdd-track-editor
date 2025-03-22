@@ -26,6 +26,7 @@ import mkdd_widgets # as mkddwidgets
 from widgets.side_widget import PikminSideWidget
 from widgets.editor_widgets import open_error_dialog, open_info_dialog, catch_exception_with_dialog
 from mkdd_widgets import BolMapViewer, MODE_TOPDOWN
+from lib import vectors
 from lib.libbol import BOL, MGEntry, Route, get_full_name
 import lib.libbol as libbol
 from lib.rarc import Archive
@@ -3556,6 +3557,36 @@ class GenEditor(QtWidgets.QMainWindow):
                 enemygroup.points.insert(0, enemypoint)
             # To connect to the second to last group.
             enemygroup.points[0].link = self.level_file.enemypointgroups.groups[-2].points[-1].link
+
+            # Floating arrows that show players the direction. Notice that the order in this list
+            # matters: arrows that may occlude other arrows (e.g. the two objects near the start
+            # line) need to be drawn before the arrows they may occlude; the game must be rendering
+            # these objects in the reverse order, or something.
+            if Course.LuigiCircuit2:
+                shared_rotation = (
+                    vectors.Vector3(0.0, 0.0, -1.0),
+                    vectors.Vector3(-0.1235406797931961, 0.9923395086542889, -0.0),
+                    vectors.Vector3(-0.992339508654289, -0.12354067979319602, -0.0),
+                )
+                objects_data = (
+                    (2828.6899, 3244.3912, 7861.0098, 101.0638),
+                    (5639.2002, 3249.9027, 11012.5000, 91.2606),
+                    (-1596.1698, 890.3499, -5440.0000, shared_rotation),
+                    (-603.8302, 1013.8906, -5440.0000, shared_rotation),
+                    (-6753.8557, 2.9111, -17786.1831, -61.1902),
+                    (-8068.2047, 2.9111, -18509.0169, -61.1902),
+                )
+                for x, y, z, angle in objects_data:
+                    obj = libbol.MapObject.new()
+                    obj.objectid = 4207  # TMapObjWlArrow
+                    obj.position.x = x
+                    obj.position.y = y + 350.0  # Ground level + vertical offset
+                    obj.position.z = z
+                    if isinstance(angle, tuple):
+                        obj.rotation.set_vectors(*shared_rotation)
+                    else:
+                        obj.rotation.rotate_around_z(-angle * pi / 180.0)
+                    self.level_file.objects.objects.append(obj)
 
         elif Course.PeachBeach:
             # In Peach Beach, the respan points around the pipe shortcut didn't need to be rotated

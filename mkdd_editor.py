@@ -5826,7 +5826,11 @@ class GenEditor(QtWidgets.QMainWindow):
             # Some cosmetic tweaks in respawn points.
             for respawn_point in self.level_file.respawnpoints:
                 if similar_position(respawn_point.position, -17823, 63268, -28608):
-                    respawn_point.rotation.rotate_around_z(-0.10)
+                    respawn_point.rotation.rotate_around_z(-0.18)
+                    respawn_point.position.x = -13450.1563
+                    respawn_point.position.y = 63367.3320
+                    respawn_point.position.z = -22966.7588
+                    respawn_point.unk1 = 18  # Next enemy point.
             # Some respawn points need to be moved to the other end of the curve, or else karts may
             # end up following the old, wrong enemy point, or even fall again.
             for respawn_point in self.level_file.respawnpoints:

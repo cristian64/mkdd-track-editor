@@ -4188,17 +4188,23 @@ class GenEditor(QtWidgets.QMainWindow):
             # downwards slightly.
             for obj in self.level_file.objects.objects:
                 if similar_position(obj.position, 12879, 3079, -11):
-                    obj.position.y -= 425
+                    obj.position.y -= 100
                 elif similar_position(obj.position, 12867, 3242, -19):
-                    obj.position.y -= 425
+                    obj.position.y -= 100
                 elif similar_position(obj.position, 12872, 3242, -19):
-                    obj.position.y -= 425
+                    obj.position.y -= 100
                 elif similar_position(obj.position, -8025, 3114, -4947):
-                    obj.position.y -= 800
+                    obj.position.x = -8123.7002 + 500
+                    obj.position.y += 50
+                    obj.position.z = -5000.6943
                 elif similar_position(obj.position, -8123, 3220, -4953):
-                    obj.position.y -= 800
+                    obj.position.x = -8123.7002 + 500
+                    obj.position.y += 50
+                    obj.position.z = -5000.6943
                 elif similar_position(obj.position, -8118, 3220, -4953):
-                    obj.position.y -= 800
+                    obj.position.x = -8123.7002 + 500
+                    obj.position.y += 50
+                    obj.position.z = -5000.6943
 
             # Dancing road signs need to be reoriented and tweaked.
             for obj in self.level_file.objects.objects:
@@ -4268,9 +4274,13 @@ class GenEditor(QtWidgets.QMainWindow):
                     obj.rotation.rotate_around_z(pi)
 
             for point in self.level_file.respawnpoints:
-                # The automatic attempt to select next enemy point failed in one respawn point.
+                # The respawn point in the jump before the three little slopes need to be moved to
+                # other side of the slope.
                 if similar_position(point.position, -10484, 1588, -4949):
-                    next_enemy_point = 41
+                    point.position.x = -4991.2234
+                    point.position.y = 1338.4017
+                    point.position.z = -5000.6943
+                    next_enemy_point = 44
                     point.unk1 = next_enemy_point
                 # The respawn points around the three little slopes needs to be moved to the now
                 # last slope.
@@ -4328,6 +4338,22 @@ class GenEditor(QtWidgets.QMainWindow):
             swap_swerve(1397, 998, -4968, 3502, 990, -5919)
             swap_swerve(-6289, 1000, -9605, -7848, 1000, -8062)
             swap_swerve(-6573, 1000, -944, -8092, 1000, -3868)
+            set_swerve(-11788, 1150, -5100, 0)
+            set_swerve(-8017, 2986, -4986, 0)
+            set_swerve(-4794, 1269, -4892, 0)
+
+            for point in self.level_file.enemypointgroups.points():
+                # Align enemy points near the metallic bridge so that CPU karts have a chance to
+                # pick up the item box in the center of the fireballs.
+                if similar_position(point.position, -11788, 1150, -5100):
+                    point.position.z = -5211.8943
+                    point.scale = 3000
+                elif similar_position(point.position, -8017, 2986, -4986):
+                    point.position.z = -5000.6943
+                elif similar_position(point.position, -5938, 2056, -4945):
+                    point.position.z = -5000.6943
+                elif similar_position(point.position, -4794, 1269, -4892):
+                    point.position.z = -5000.6943
 
         elif Course.SherbetLand:
             # Cosmetic tweaks for the one respawn point.

@@ -2906,9 +2906,16 @@ class GenEditor(QtWidgets.QMainWindow):
                 self.load_optional_bmd(filepath)
 
     def action_reverse_official_track(self):
-        self.reverse_official_track()
+        reverser = Reverser(self.level_file)
+        reverser.reverse_official_track()
         self.leveldatatreeview.set_objects(self.level_file)
         self.update_3d()
+
+
+class Reverser:
+
+    def __init__(self, level_file: BOL):
+        self.level_file = level_file
 
     def reverse_official_track(self):
 
@@ -6012,14 +6019,7 @@ class Application(QtWidgets.QApplication):
 
 
 if __name__ == "__main__":
-    #import sys
-    import platform
-    import signal
     import argparse
-
-    QtCore.QLocale.setDefault(QtCore.QLocale(QtCore.QLocale.English))
-
-    sys.excepthook = except_hook
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--load", default=None,
@@ -6032,6 +6032,22 @@ if __name__ == "__main__":
                         "exit after that.")
 
     args = parser.parse_args()
+
+    if args.reverse:
+        with open(args.load, 'rb') as f:
+            bol = BOL.from_file(f)
+        reverser = Reverser(bol)
+        reverser.reverse_official_track()
+        with open(args.load, "wb") as f:
+            bol.write(f)
+        sys.exit()
+
+    import platform
+    import signal
+
+    QtCore.QLocale.setDefault(QtCore.QLocale(QtCore.QLocale.English))
+
+    sys.excepthook = except_hook
 
     os.environ['QT_ENABLE_HIGHDPI_SCALING'] = '0'
     app = Application(sys.argv)
@@ -6095,24 +6111,10 @@ if __name__ == "__main__":
         editor_gui.show()
 
         if args.load is not None:
-            if args.reverse:
-                def reverse_save_exit():
-                    editor_gui.load_file(args.load)
-                    try:
-                        editor_gui.action_reverse_official_track()
-                        editor_gui.button_save_level()
-                    except:
-                        traceback.print_exc()
-                        os._exit(1)
-                    os._exit(0)
+            def load():
+                editor_gui.load_file(args.load, additional=args.additional)
 
-                editor_gui.hide()
-                QtCore.QTimer.singleShot(0, reverse_save_exit)
-            else:
-                def load():
-                    editor_gui.load_file(args.load, additional=args.additional)
-
-                QtCore.QTimer.singleShot(0, load)
+            QtCore.QTimer.singleShot(0, load)
 
         err_code = app.exec()
 

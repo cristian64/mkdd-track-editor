@@ -5147,6 +5147,14 @@ class Reverser:
                     respawn_point.unk1 = 35
                 elif similar_position(respawn_point.position, -2378, 12793, -1585):
                     respawn_point.unk1 = 33
+            # The respawn point associated with a boost pad needs to be placed to the other side, as
+            # the boost pads have been moved too to the other side of the little hill.
+            for respawn_point in self.level_file.respawnpoints:
+                if similar_position(respawn_point.position, 1867, 22289, 4527):
+                    respawn_point.unk1 = 68
+                    respawn_point.position.x = -913.0897
+                    respawn_point.position.y = 22726.2701
+                    respawn_point.position.z = -3318.8606
             # Also fix the preceding checkpoint index of the respawn points.
             self.level_file.respawnpoints[0].unk3 = 5
             self.level_file.respawnpoints[1].unk3 = 70
@@ -5164,7 +5172,7 @@ class Reverser:
             self.level_file.respawnpoints[13].unk3 = 16
             self.level_file.respawnpoints[14].unk3 = 67
             self.level_file.respawnpoints[15].unk3 = 59
-            self.level_file.respawnpoints[16].unk3 = 35
+            self.level_file.respawnpoints[16].unk3 = 37
             self.level_file.respawnpoints[17].unk3 = 70
             self.level_file.respawnpoints[18].unk3 = 5
             # The now first curve is too sharp, and the AI falls too often. They need to be guided

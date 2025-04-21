@@ -3035,6 +3035,13 @@ class Reverser:
             new_area.lightparam_index = area.lightparam_index
             return new_area
 
+        def nomushroom(x, y, z):
+            for i, point in enumerate(list(self.level_file.enemypointgroups.points())):
+                if similar_position(point.position, x, y, z):
+                    point.nomushroomzone = 1
+                    return
+            raise AssertionError('Enemy point not found to set the no-mushroom zone flag')
+
         # Determine which course this is based on the position of the start point, which is assumed
         # unique (and in fact it is unique among the stock courses).
 
@@ -3441,6 +3448,11 @@ class Reverser:
             for point in group.points:
                 point.group = i
 
+        # No easy way to automate the no-mushroom zone flag; it will be cleared in all points and
+        # then added manually for each course.
+        for enemy_point in list(self.level_file.enemypointgroups.points()):
+            enemy_point.nomushroomzone = 0
+
         # Respawn Points ---------------------------------------------------------------------------
 
         for respawn_point in self.level_file.respawnpoints:
@@ -3595,6 +3607,56 @@ class Reverser:
                         obj.rotation.rotate_around_z(-angle * pi / 180.0)
                     self.level_file.objects.objects.append(obj)
 
+            if Course.LuigiCircuit:
+                nomushroom(9894, 3921, 26647)
+                nomushroom(8040, 3811, 27427)
+                nomushroom(5892, 3776, 27621)
+                nomushroom(3780, 3763, 26976)
+                nomushroom(2430, 3706, 25841)
+                nomushroom(1779, 3532, 24301)
+                nomushroom(1607, 3362, 22334)
+                nomushroom(-11457, 249, -20429)
+                nomushroom(-13173, 146, -23000)
+                nomushroom(-11987, 154, -22645)
+                nomushroom(-12712, 690, -31206)
+                nomushroom(-13655, 788, -29906)
+                nomushroom(-9400, 709, -33329)
+                nomushroom(-11321, 744, -32391)
+                nomushroom(-5249, 751, -33824)
+                nomushroom(-7077, 756, -33909)
+                nomushroom(-2039, 697, -32513)
+                nomushroom(-557, 794, -31436)
+                nomushroom(710, 697, -29455)
+                nomushroom(1344, 595, -27395)
+                nomushroom(7700, 3253, 9000)
+                nomushroom(7951, 3315, 11235)
+                nomushroom(8857, 3574, 13951)
+                nomushroom(8210, 3574, 12568)
+            else:
+                nomushroom(9894, 3920, 26647)
+                nomushroom(8040, 3810, 27427)
+                nomushroom(5892, 3776, 27621)
+                nomushroom(3780, 3763, 26976)
+                nomushroom(1960, 3661, 25136)
+                nomushroom(1544, 3425, 23010)
+                nomushroom(-11005, 48, -19089)
+                nomushroom(-11987, 154, -22645)
+                nomushroom(-13173, 146, -23000)
+                nomushroom(-12712, 690, -31206)
+                nomushroom(-13655, 788, -29906)
+                nomushroom(-9400, 709, -33329)
+                nomushroom(-11321, 744, -32391)
+                nomushroom(-5249, 751, -33824)
+                nomushroom(-7077, 756, -33909)
+                nomushroom(-2039, 697, -32513)
+                nomushroom(-557, 794, -31436)
+                nomushroom(710, 697, -29455)
+                nomushroom(1344, 595, -27395)
+                nomushroom(8210, 3574, 12568)
+                nomushroom(8094, 3398, 11705)
+                nomushroom(8868, 3574, 14098)
+                nomushroom(7899, 3252, 10968)
+
         elif Course.PeachBeach:
             # In Peach Beach, the respan points around the pipe shortcut didn't need to be rotated
             # 180 degrees. They need to be rotated back.
@@ -3704,9 +3766,26 @@ class Reverser:
             set_swerve(-3067, 1463, 22469, -1)
             set_swerve(-789, 1786, 25251, -1)
 
+            nomushroom(7426, 841, -25062)
+            nomushroom(1920, 800, -25150)
+            nomushroom(8956, 1174, -22387)
+            nomushroom(4664, 800, -25815)
+            nomushroom(-2777, 677, -18538)
+            nomushroom(-431, 714, -22500)
+            nomushroom(-3736, 1245, 20035)
+            nomushroom(-3067, 1463, 22469)
+            nomushroom(-789, 1786, 25251)
+            nomushroom(2584, 1988, 26187)
+            nomushroom(5751, 2063, 25658)
+
         elif Course.BabyPark:
             move_drift(8730, 6000, -2281, 9100, 6000, 2290)
             move_drift(-8871, 6000, 1921, -9116, 6000, -2117)
+
+            nomushroom(9100, 6000, 2290)
+            nomushroom(11250, 6000, 0)
+            nomushroom(-10669, 6000, -737)
+            nomushroom(-10581, 6000, 553)
 
         elif Course.DryDryDesert:
             for point in self.level_file.respawnpoints:
@@ -3964,6 +4043,19 @@ class Reverser:
             move_swerve(-3429, 1118, 16327, 638, 1103, 17492)
             move_swerve(-13441, 1100, 20407, -4203, 1103, 18653)
 
+            nomushroom(-14567, 1102, -10229)
+            nomushroom(-12062, 1100, -12846)
+            nomushroom(-13880, 1100, -11806)
+            nomushroom(441, 1212, -14839)
+            nomushroom(3077, 1170, -16319)
+            nomushroom(1919, 1163, -15347)
+            nomushroom(3799, 1192, -17946)
+            nomushroom(638, 1103, 17492)
+            nomushroom(-81, 1109, 15896)
+            nomushroom(-1203, 1117, 15277)
+            nomushroom(-2361, 1121, 15370)
+            nomushroom(-3429, 1118, 16327)
+
         elif Course.DaisyCruiser:
             # In Daisy Cruiser, when AI karts fall through the sinkhole, they don't know how to use
             # the cannon to get out. A new water zone (Roadtype_0x0F00_0x00000101) will be added in
@@ -4189,6 +4281,25 @@ class Reverser:
             set_swerve(-8244, 6499, -3617, 0)
             set_swerve(-3472, 9244, -4668, 2)
 
+            nomushroom(32680, 7250, 1800)
+            nomushroom(32480, 7250, -2000)
+            nomushroom(33500, 7250, 0)
+            nomushroom(7789, 6500, -1186)
+            nomushroom(9978, 6500, -3951)
+            nomushroom(8142, 6500, -3127)
+            nomushroom(7549, 6500, 2136)
+            nomushroom(8059, 6500, 502)
+            nomushroom(-6373, 6499, -2849)
+            nomushroom(-6719, 6499, -4641)
+            nomushroom(-4622, 6499, -3977)
+            nomushroom(-3289, 6500, -2617)
+            nomushroom(-37221, 6500, 3574)
+            nomushroom(-31645, 8500, -4561)
+            nomushroom(-30579, 8499, -3632)
+            nomushroom(-19638, 8499, -501)
+            nomushroom(-18100, 8499, -2292)
+            nomushroom(-34235, 8080, -4789)
+
         elif Course.WaluigiStadium:
             # In Waluigi Stadium, a number of item boxes and fire balls are now too high for reach,
             # as in the reverse mode karts don't get that high up. These objects will be moved
@@ -4362,6 +4473,31 @@ class Reverser:
                 elif similar_position(point.position, -4794, 1269, -4892):
                     point.position.z = -5000.6943
 
+            nomushroom(8060, 1062, -28)
+            nomushroom(15185, 1724, -132)
+            nomushroom(13597, 2670, -133)
+            nomushroom(21663, 1000, -394)
+            nomushroom(23213, 1000, -2153)
+            nomushroom(13111, 1086, -9100)
+            nomushroom(14909, 1179, -10686)
+            nomushroom(15871, 1131, -9741)
+            nomushroom(13832, 1159, -10563)
+            nomushroom(16225, 1050, -8143)
+            nomushroom(-18653, 1013, -5910)
+            nomushroom(-20811, 1017, -4524)
+            nomushroom(-11788, 1150, -5211)
+            nomushroom(-5938, 2056, -5000)
+            nomushroom(-4794, 1269, -5000)
+            nomushroom(-8017, 2986, -5000)
+            nomushroom(2050, 1003, -10067)
+            nomushroom(-3088, 1624, -10513)
+            nomushroom(23, 1590, -10474)
+            nomushroom(-1540, 1488, -10469)
+            nomushroom(3502, 990, -5919)
+            nomushroom(1397, 998, -4968)
+            nomushroom(-6573, 1000, -944)
+            nomushroom(-8092, 1000, -3868)
+
         elif Course.SherbetLand:
             # Cosmetic tweaks for the one respawn point.
             for point in self.level_file.respawnpoints:
@@ -4451,6 +4587,20 @@ class Reverser:
             move_swerve(386, 1176, -15909, 5065, 1176, -17616)
             move_swerve(-1502, 1330, -7658, -755, 1209, -9925)
             move_swerve(-5203, 1445, -5113, -3370, 1341, -6535)
+
+            nomushroom(17385, 1521, 25778)
+            nomushroom(19875, 1531, 22731)
+            nomushroom(19308, 1521, 24905)
+            nomushroom(17223, 1371, 13140)
+            nomushroom(18619, 1518, 14989)
+            nomushroom(9886, 918, 10338)
+            nomushroom(10527, 1002, 12486)
+            nomushroom(10462, 2000, -3169)
+            nomushroom(10090, 1588, -890)
+            nomushroom(-3370, 1341, -6535)
+            nomushroom(-1502, 1330, -7658)
+            nomushroom(-5203, 1445, -5113)
+            nomushroom(11755, 2110, -4574)
 
         elif Course.MushroomCity:
             # A number of respawn points need to be tweaked.
@@ -4558,6 +4708,35 @@ class Reverser:
             self.level_file.routes[2].points[2].position.z = 7140
             self.level_file.routes[2].points[3].position.z = 7500
             self.level_file.routes[4].points[2].position.x = 16864.784
+
+            nomushroom(24980, 4000, 10088)
+            nomushroom(25170, 4000, 10050)
+            nomushroom(24689, 4000, 368)
+            nomushroom(8547, 3999, 12100)
+            nomushroom(7984, 4132, -7612)
+            nomushroom(7542, 4306, -10598)
+            nomushroom(5715, 4298, -12496)
+            nomushroom(-10016, 4000, -10898)
+            nomushroom(-10153, 4000, -10760)
+            nomushroom(-12260, 4000, -12684)
+            nomushroom(-9599, 4000, -1844)
+            nomushroom(-9800, 4000, -2900)
+            nomushroom(-8869, 4000, -554)
+            nomushroom(-8700, 4000, -1400)
+            nomushroom(-7489, 4000, 345)
+            nomushroom(-7300, 4000, -770)
+            nomushroom(5783, 4000, -820)
+            nomushroom(9069, 4020, 1537)
+            nomushroom(8049, 4000, 2960)
+            nomushroom(8011, 4000, -2166)
+            nomushroom(10331, 4000, 622)
+            nomushroom(5760, 4000, 902)
+            nomushroom(9824, 4000, -838)
+            nomushroom(21354, 4000, -809)
+            nomushroom(27304, 4000, 13282)
+            nomushroom(8017, 4000, 8632)
+            nomushroom(22763, 4000, 1289)
+            nomushroom(24673, 4000, 2722)
 
         elif Course.YoshiCircuit:
             for point in self.level_file.respawnpoints:
@@ -4783,6 +4962,36 @@ class Reverser:
             move_swerve(-5243, 12854, 16345, -8093, 12903, 15838)
             move_swerve(-1290, 12935, 23129, -1119, 12989, 20140)
             move_swerve(-4313, 12704, 33188, -4905, 12863, 24986)
+
+            nomushroom(13454, 12705, 32582)
+            nomushroom(10768, 12705, 33512)
+            nomushroom(13532, 12705, 23220)
+            nomushroom(13445, 12705, 25075)
+            nomushroom(20910, 12705, 8373)
+            nomushroom(24225, 12705, 11514)
+            nomushroom(24318, 12705, 10010)
+            nomushroom(23682, 12705, 8655)
+            nomushroom(22416, 12705, 8191)
+            nomushroom(2837, 12161, 6117)
+            nomushroom(2313, 12248, 4751)
+            nomushroom(2776, 12452, 3478)
+            nomushroom(1697, 12995, 2105)
+            nomushroom(3649, 12736, 2924)
+            nomushroom(4882, 12922, 2765)
+            nomushroom(4085, 12172, 6509)
+            nomushroom(6007, 12936, 2045)
+            nomushroom(2664, 13859, -14450)
+            nomushroom(-8745, 13261, -12385)
+            nomushroom(-10108, 13219, -12035)
+            nomushroom(-7845, 13282, -13505)
+            nomushroom(-7309, 12705, 505)
+            nomushroom(-9313, 12746, -451)
+            nomushroom(-8099, 12719, -233)
+            nomushroom(-11028, 12743, -428)
+            nomushroom(-2140, 12930, 23892)
+            nomushroom(-1119, 12989, 20140)
+            nomushroom(-1290, 12935, 23129)
+            nomushroom(-1039, 12939, 21603)
 
         elif Course.DKMountain:
             # Remove enemy point group in the old cliff shortcut. Red shells cannot follow it.
@@ -5068,6 +5277,38 @@ class Reverser:
             set_swerve(-20500, 8414, 18500, 1)
             set_swerve(-20900, 8304, 16700, 2)
 
+            nomushroom(-14743, 4035, -406)
+            nomushroom(-14887, 4712, -7934)
+            nomushroom(-14791, 4073, -2742)
+            nomushroom(-15622, 7253, -20629)
+            nomushroom(-13955, 7551, -23717)
+            nomushroom(-15270, 7480, -22900)
+            nomushroom(-11931, 7479, -16402)
+            nomushroom(-9499, 8100, -18018)
+            nomushroom(-10565, 7728, -16210)
+            nomushroom(-12538, 7402, -18174)
+            nomushroom(-8900, 8453, -19500)
+            nomushroom(-13200, 9172, -27300)
+            nomushroom(-14000, 9165, -28800)
+            nomushroom(-13600, 9159, -29900)
+            nomushroom(-12361, 9162, -26470)
+            nomushroom(-4349, 11102, -27787)
+            nomushroom(-4547, 11350, -29060)
+            nomushroom(-5428, 11686, -30140)
+            nomushroom(-7105, 10326, -26493)
+            nomushroom(-5850, 10746, -26213)
+            nomushroom(-4741, 10916, -26721)
+            nomushroom(-318, 33824, -56857)
+            nomushroom(-615, 33174, -54765)
+            nomushroom(-13353, 8509, 17345)
+            nomushroom(-12686, 8510, 14224)
+            nomushroom(-14100, 8508, 18800)
+            nomushroom(-13003, 8510, 15795)
+            nomushroom(-18879, 7715, 13102)
+            nomushroom(-16578, 7007, 11508)
+            nomushroom(-17508, 7392, 12314)
+            nomushroom(-15980, 5351, 7861)
+
         elif Course.WarioColosseum:
             # In Wario Colosseum, an invisible cannon needs to be added as a lift.
             for point in self.level_file.respawnpoints:
@@ -5308,6 +5549,59 @@ class Reverser:
             move_swerve(23890, 25365, 13337, 23368, 25365, 8209)
             move_swerve(-13190, 22179, 8870, -10840, 22179, 11240)
 
+            nomushroom(-13600, 22179, -10077)
+            nomushroom(-12717, 22179, -11887)
+            nomushroom(-10443, 22179, -12882)
+            nomushroom(-6059, 22179, -12696)
+            nomushroom(-4437, 21576, -12681)
+            nomushroom(16470, 17000, 5858)
+            nomushroom(15279, 17000, 7449)
+            nomushroom(13900, 17000, 8209)
+            nomushroom(12607, 17022, 8059)
+            nomushroom(-12429, 17291, 2433)
+            nomushroom(-10057, 17563, 3032)
+            nomushroom(-7963, 17870, 3124)
+            nomushroom(-6082, 18491, 2856)
+            nomushroom(211, 21232, 8619)
+            nomushroom(-2085, 20594, 8688)
+            nomushroom(1507, 21875, 6852)
+            nomushroom(1197, 22654, 2711)
+            nomushroom(186, 24236, -447)
+            nomushroom(-640, 22876, -3030)
+            nomushroom(-1099, 22068, -5052)
+            nomushroom(-1187, 21834, -7288)
+            nomushroom(-112, 21937, -8573)
+            nomushroom(-4653, 20815, 1916)
+            nomushroom(1898, 21837, -8526)
+            nomushroom(8029, 23747, 329)
+            nomushroom(8186, 23243, -1574)
+            nomushroom(-3743, 25252, -1004)
+            nomushroom(-4345, 27449, -1636)
+            nomushroom(-5913, 26999, -1388)
+            nomushroom(-196, 28815, -30)
+            nomushroom(3261, 21601, -205)
+            nomushroom(1603, 29433, 685)
+            nomushroom(3715, 31780, 1585)
+            nomushroom(7237, 22451, -3868)
+            nomushroom(6626, 28276, 2699)
+            nomushroom(7702, 27248, 3153)
+            nomushroom(9874, 25941, 4151)
+            nomushroom(11612, 25463, 4943)
+            nomushroom(17124, 17000, 3388)
+            nomushroom(23368, 25365, 8209)
+            nomushroom(25847, 25365, 9443)
+            nomushroom(25986, 25365, 11792)
+            nomushroom(23890, 25365, 13337)
+            nomushroom(15249, 24753, 13677)
+            nomushroom(16408, 25365, 13668)
+            nomushroom(-699, 23861, 11523)
+            nomushroom(-1528, 23330, 11523)
+            nomushroom(-3498, 22449, 11522)
+            nomushroom(-11990, 22179, 10760)
+            nomushroom(-10840, 22179, 11240)
+            nomushroom(-12730, 22179, 9920)
+            nomushroom(-13190, 22179, 8870)
+
         elif Course.DinoDinoJungle:
             # In Dino Dino Jungle, a respawn point needs to be moved after the bridge now. This is
             # the only respawn point in the course with `unk3` (preceding checkpoint index) set, so
@@ -5471,6 +5765,27 @@ class Reverser:
             set_swerve(340, 8140, 2737, -1)
             move_swerve(8232, 8427, -12960, 7957, 8422, -9905)
             move_drift(11884, 8427, -17685, 6694, 8427, -15462)
+
+            nomushroom(8714, 10926, 13180)
+            nomushroom(11082, 10465, 11875)
+            nomushroom(10208, 10777, 13235)
+            nomushroom(-29532, 12069, -11003)
+            nomushroom(-29344, 12069, -13709)
+            nomushroom(-28176, 12069, -9351)
+            nomushroom(-28043, 12069, -14909)
+            nomushroom(-24980, 11007, 5638)
+            nomushroom(-24400, 10341, 8258)
+            nomushroom(-24752, 8902, 7554)
+            nomushroom(-23092, 9692, 10347)
+            nomushroom(-17435, 8866, 11946)
+            nomushroom(-15969, 8561, 11114)
+            nomushroom(-19378, 9115, 12218)
+            nomushroom(8232, 8427, -12960)
+            nomushroom(6604, 8427, -17444)
+            nomushroom(6694, 8427, -15462)
+            nomushroom(8085, 8428, -18794)
+            nomushroom(10072, 8427, -18748)
+            nomushroom(11884, 8427, -17685)
 
         elif Course.BowsersCastle:
             # Remove enemy point group in the old cliff shortcut. Red shells cannot follow it.
@@ -5708,6 +6023,46 @@ class Reverser:
             # After the two corridors.
             del_enemy_point(3587, 6757, 2983)
             del_enemy_point(3575, 7002, 5157)
+
+            nomushroom(1537, 8100, 24003)
+            nomushroom(-590, 8141, 24497)
+            nomushroom(-3970, 9193, 24699)
+            nomushroom(-7928, 10628, 24777)
+            nomushroom(-14076, 8739, 24836)
+            nomushroom(3812, 8100, 22513)
+            nomushroom(3785, 8100, 19666)
+            nomushroom(-27622, 8331, 24955)
+            nomushroom(-30265, 8100, 23707)
+            nomushroom(-30455, 8331, 16384)
+            nomushroom(-27442, 8635, 16133)
+            nomushroom(-26717, 8730, 17217)
+            nomushroom(-28832, 8520, 15660)
+            nomushroom(-24072, 8829, 22455)
+            nomushroom(-26245, 8765, 19054)
+            nomushroom(-24306, 8829, 21910)
+            nomushroom(-25607, 8799, 20999)
+            nomushroom(-2251, 11700, 20163)
+            nomushroom(-1830, 11700, 18854)
+            nomushroom(-3350, 11569, 20750)
+            nomushroom(-2473, 11700, 17424)
+            nomushroom(-7374, 11700, 15584)
+            nomushroom(-8065, 10822, 6015)
+            nomushroom(-7415, 10800, 4583)
+            nomushroom(-4665, 10800, 4955)
+            nomushroom(-5946, 10800, 4234)
+            nomushroom(-3575, 9000, 14991)
+            nomushroom(-3003, 9431, 13455)
+            nomushroom(-4305, 9000, 15668)
+            nomushroom(-9170, 9000, 15708)
+            nomushroom(-10676, 9000, 15476)
+            nomushroom(-11369, 9000, 14770)
+            nomushroom(-11594, 6875, -23070)
+            nomushroom(-9616, 6937, -25804)
+            nomushroom(-11359, 6930, -24234)
+            nomushroom(-10607, 6930, -25237)
+            nomushroom(3662, 6937, -25035)
+            nomushroom(3186, 6937, -25770)
+            nomushroom(1947, 6937, -26168)
 
         elif Course.RainbowRoad:
             # In Rainbow Road, the cannon needs to be replaced, and its orientation flipped.
@@ -5995,6 +6350,41 @@ class Reverser:
             set_swerve(-4835, 38201, -10057, 0)
             set_swerve(-5676, 36897, -6596, 3)
             move_swerve(-1073, 47478, -24395, 191, 45391, -21934)
+
+            nomushroom(-12231, 63578, -21239)
+            nomushroom(-16899, 63707, -27250)
+            nomushroom(-14032, 64986, -23751)
+            nomushroom(-19171, 63088, -29747)
+            nomushroom(8162, 65074, 7066)
+            nomushroom(1799, 63613, -1782)
+            nomushroom(5738, 64415, 3598)
+            nomushroom(19871, 4392, 22796)
+            nomushroom(13954, 6660, 14914)
+            nomushroom(18187, 4392, 21037)
+            nomushroom(16066, 4973, 17973)
+            nomushroom(18957, 4532, 27035)
+            nomushroom(20444, 4409, 26166)
+            nomushroom(13981, 5130, 27509)
+            nomushroom(11688, 5578, 28664)
+            nomushroom(9728, 5978, 28602)
+            nomushroom(7469, 6349, 27620)
+            nomushroom(5369, 7125, 27664)
+            nomushroom(3081, 8390, 28699)
+            nomushroom(759, 9862, 28784)
+            nomushroom(2412, 34102, -9983)
+            nomushroom(1668, 34893, -12827)
+            nomushroom(2905, 34864, -11903)
+            nomushroom(261, 34554, -12071)
+            nomushroom(-3890, 36494, -6361)
+            nomushroom(-5676, 36897, -6596)
+            nomushroom(-6069, 37560, -8442)
+            nomushroom(-2343, 35112, -8191)
+            nomushroom(-17171, 16999, 13411)
+            nomushroom(-14867, 19381, 10641)
+            nomushroom(-11961, 19849, 7157)
+            nomushroom(-6875, 25216, 1120)
+            nomushroom(-4564, 28761, -1539)
+            nomushroom(-2634, 32465, -3932)
 
 
 def find_file(rarc_folder, ending):

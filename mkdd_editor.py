@@ -5494,19 +5494,21 @@ class Reverser:
                     respawn_point.position.y = 7175.91
                     respawn_point.position.z = 6116.826
                     respawn_point.unk3 = 62  # Preceding checkpoint.
-            # The respawn points near the old final jump (where the new wooden bridge is now) can
-            # be advanced a little bit, so the penalty is a bit less stressed.
+            # The respawn points near the old final jump need to be moved to the other side of the
+            # jump.
             for respawn_point in self.level_file.respawnpoints:
                 if similar_position(respawn_point.position, -2266, 8518, 24767):
-                    respawn_point.position.x = -6265.218
-                    respawn_point.position.y = 10193.2
+                    respawn_point.position.x = -10800.0000
+                    respawn_point.position.y = 9179.9990
+                    respawn_point.position.z = 24750.0000
                     respawn_point.unk1 = 7  # Next enemy point.
-                    respawn_point.unk3 = 5  # Preceding checkpoint.
-                elif similar_position(respawn_point.position, -2755, 8662, 24777):
-                    respawn_point.position.x = -6265.218
-                    respawn_point.position.y = 10193.2
+                    respawn_point.unk3 = 6  # Preceding checkpoint.
+                elif similar_position(respawn_point.position, -2755, 8662, 24777):  # For boost pad
+                    respawn_point.position.x = -10800.0000
+                    respawn_point.position.y = 9179.9990 + 10000  # Higher jump
+                    respawn_point.position.z = 24750.0000
                     respawn_point.unk1 = 7  # Next enemy point.
-                    respawn_point.unk3 = 5  # Preceding checkpoint.
+                    respawn_point.unk3 = 6  # Preceding checkpoint.
             # A respawn point (near the lava shortcut) is too close to the edge.
             for respawn_point in self.level_file.respawnpoints:
                 if similar_position(respawn_point.position, -25361, 8819, 20850):

@@ -5516,6 +5516,15 @@ class Reverser:
                     respawn_point.position.z = 20968.8
                     respawn_point.rotation.rotate_around_z(0.8)
                     respawn_point.unk1 = 23  # Next enemy point.
+            # The respawn point near the old first jump need to be moved to the other side of the
+            # jump.
+            for respawn_point in self.level_file.respawnpoints:
+                if similar_position(respawn_point.position, -11706, 6309, -6248):
+                    respawn_point.position.x = -11700.0005
+                    respawn_point.position.y = 5895.0007
+                    respawn_point.position.z = -10125.0000
+                    respawn_point.unk1 = 85  # Next enemy point (left branch in the lava gap).
+                    respawn_point.unk3 = 52  # Preceding checkpoint.
             # Another respawn point too close to a cliff near the metallic platform with a hole.
             for respawn_point in self.level_file.respawnpoints:
                 if similar_position(respawn_point.position, -11688, 5856, -12973):

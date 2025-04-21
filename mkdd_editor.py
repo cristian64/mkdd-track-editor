@@ -5127,6 +5127,11 @@ class Reverser:
                     obj.position.x = 16506.1 - horizontal_offset
                     obj.position.y = 25165.8 + vertical_offset
                     obj.position.z = 13705.2
+            # There is one item box that only appears in single player, but not having it in this
+            # reversed version is quite eye-catching now, so it will be made available.
+            for obj in self.level_file.objects.objects:
+                if similar_position(obj.position, 3075, 22421, 7306):
+                    obj.presence = 3
             # Three respawn points need to be moved further away from the jump, so that heavy karts
             # have a chance to speed up before taking the jump.
             for respawn_point in self.level_file.respawnpoints:

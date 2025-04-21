@@ -5639,13 +5639,6 @@ class Reverser:
                 elif similar_position(point.position, -24457, 8829, 22795):
                     point.position.x = -24072.8
                     point.position.z = 22455.299
-            # The old area (type 5) that was present in the last jump needs to be removed as there
-            # is no jump anymore. (At this point, it is not fully known what these area types mean,
-            # but they always appear in jumps.)
-            for area in list(self.level_file.areas.areas):
-                if similar_position(area.position, -7263, 6057, 25103):
-                    self.level_file.areas.areas.remove(area)
-                    break
 
             for obj in self.level_file.objects.objects:
                 # Reorient falling blocks.

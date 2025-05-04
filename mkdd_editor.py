@@ -6080,7 +6080,7 @@ class Reverser:
                     point.position.y = 8500
                     point.position.z = 14914.621
             # The long segment that has been rotated needs their enemy points tweaked, and its
-            # respawn point. And some item boxes can be added as well.
+            # respawn point.
             for point in self.level_file.respawnpoints:
                 if similar_position(point.position, -8990, 22984, 3537):
                     next_enemy_point = 70
@@ -6101,20 +6101,6 @@ class Reverser:
                     point.position.y = 28761.83
                 elif similar_position(point.position, -2634, 29975, -3932):
                     point.position.y = 32465.757
-            item_boxes = (libbol.MapObject.new(), libbol.MapObject.new())
-            for item_box in item_boxes:
-                item_box.objectid = 1  # GeoItemBox
-                item_box.position.x = -9261.935
-                item_box.position.y = 22791.51
-                item_box.position.z = 2932.105
-                item_box.unk_flag = 1  # Collision.
-                item_box.presence_filter = 15
-                item_box.presence = 3
-                item_box.userdata[0] = 135  # Height offset.
-                item_box.userdata[1] = 0  # Item box type.
-                self.level_file.objects.objects.append(item_box)
-            item_boxes[1].position.x = -8246.143
-            item_boxes[1].position.z = 3801.24
             # In the last touched segment, the respawn point and enemy points need to be lifted as
             # well.
             for respawn_point in self.level_file.respawnpoints:

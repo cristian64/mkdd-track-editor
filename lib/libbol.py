@@ -358,7 +358,10 @@ class EnemyPoint(PositionedObject):
         self.widget = None
 
         assert self.swerve in (-3, -2, -1, 0, 1, 2, 3)
-        assert self.itemsonly in (0, 1)
+        if self.itemsonly not in (0,1):
+            print("Invalid itemsonly value", self.itemsonly,"setting to", self.itemsonly&1)
+            self.itemsonly = self.itemsonly & 1
+        assert self.itemsonly in (0, 1), self.itemsonly
         assert self.driftdirection in (0, 1, 2)
         assert 0 <= self.driftacuteness <= 250
         assert self.nomushroomzone in (0, 1)
@@ -869,6 +872,9 @@ class Route(object):
         route.unk1 = read_uint32(f)
         assert route.unk1 in (0, 1)
         route.unk2 = read_uint8(f)
+        if route.unk2 != 0:
+            print("WARNING: a route with route.unk2 != 0. Value has been set to 0")
+            route.unk2 = 0
         assert route.unk2 == 0
         pad = f.read(7)
         assert pad == b"\x00"*7
@@ -1033,7 +1039,11 @@ class MapObject(PositionedObject):
 
         assert obj.unk_28 == 0
         assert obj.unk_2f == 0
-        assert obj.presence in (0, 1, 2, 3)
+        if obj.presence not in (0,1,2,3):
+            print("WARNING: OBJECT PRESENCE CHANGED", obj.presence, obj.presence&0b11)
+            obj.presence = obj.presence & 0b11
+            
+        assert obj.presence in (0, 1, 2, 3), "Obj presence not in range 0-3: {0}".format(obj.presence)
 
         for i in range(8):
             obj.userdata[i] = read_int16(f)

@@ -4566,6 +4566,16 @@ class Reverser:
                     obj.rotation.rotate_around_z(-2.4)
                 elif similar_position(obj.position, 7184, 1521, 26387):
                     obj.rotation.rotate_around_z(2.0)
+                # Air jets.
+                elif similar_position(obj.position, -1974, 2703, 14742):
+                    obj.rotation.rotate_around_z(-pi / 2.0)
+                    obj.position.x = 4853.5950
+                    obj.position.z = 18708.4156
+                elif similar_position(obj.position, 13752, 2632, -13703):
+                    obj.rotation.rotate_around_z(1.19)
+                    obj.position.x = 9235.1637
+                    obj.position.y = 2354.1167
+                    obj.position.z = 9824.8529
 
             move_drift(19391, 1561, 20204, 14501, 1521, 25645)
             move_drift(11049, 712, 8374, 12624, 1121, 13122)
